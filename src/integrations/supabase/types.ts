@@ -155,6 +155,63 @@ export type Database = {
         }
         Relationships: []
       }
+      token_launches: {
+        Row: {
+          created_at: string
+          id: string
+          mint_address: string | null
+          payment_signature: string | null
+          sol_amount: number
+          status: string
+          telegram: string | null
+          token_description: string | null
+          token_image_url: string | null
+          token_name: string
+          token_symbol: string
+          transaction_signature: string | null
+          twitter: string | null
+          universe: string
+          user_wallet: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mint_address?: string | null
+          payment_signature?: string | null
+          sol_amount?: number
+          status?: string
+          telegram?: string | null
+          token_description?: string | null
+          token_image_url?: string | null
+          token_name: string
+          token_symbol: string
+          transaction_signature?: string | null
+          twitter?: string | null
+          universe?: string
+          user_wallet: string
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mint_address?: string | null
+          payment_signature?: string | null
+          sol_amount?: number
+          status?: string
+          telegram?: string | null
+          token_description?: string | null
+          token_image_url?: string | null
+          token_name?: string
+          token_symbol?: string
+          transaction_signature?: string | null
+          twitter?: string | null
+          universe?: string
+          user_wallet?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       video_comments: {
         Row: {
           content: string
