@@ -19,7 +19,7 @@ const Footer = () => (
       </div>
       <div className="mt-8 pt-8 border-t border-border text-center">
         <p className="text-xs text-muted-foreground">
-          Your brain is already rotting. Might as well profit from it. 🧠🪱
+          Your brain is already rotting. Might as well profit from it.
         </p>
       </div>
     </div>

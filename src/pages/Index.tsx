@@ -60,7 +60,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            Launch your brainrot coin, generate AI characters, and ride the bonding curve to glory. Your brain is already rotting — might as well profit. 🧠🪱
+            Launch your brainrot coin, generate AI characters, and ride the bonding curve to glory.
           </motion.p>
           <motion.div
             className="flex flex-col sm:flex-row gap-4 justify-center"
@@ -201,7 +201,7 @@ const Index = () => {
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                 <GraduationCap className="h-4 w-4 text-primary" />
               </div>
-              <h2 className="font-display text-xl font-bold text-foreground">About to Graduate 🎓</h2>
+              <h2 className="font-display text-xl font-bold text-foreground">About to Graduate</h2>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
