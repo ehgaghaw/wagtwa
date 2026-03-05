@@ -34,6 +34,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/coin/:id" element={<CoinDetail />} />
+                <Route path="/token/:mintAddress" element={<CoinDetail />} />
                 <Route path="/launch" element={<LaunchCoin />} />
                 <Route path="/characters" element={<Characters />} />
                 <Route path="/videos" element={<Videos />} />

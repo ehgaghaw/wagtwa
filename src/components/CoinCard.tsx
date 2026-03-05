@@ -11,7 +11,7 @@ const formatNum = (n: number) => {
 
 const CoinCard = ({ coin }: { coin: BrainrotCoin }) => (
   <Link
-    to={`/coin/${coin.id}`}
+    to={coin.mintAddress ? `/token/${coin.mintAddress}` : `/coin/${coin.id}`}
     className="block bg-card border border-border rounded-md p-4 hover:border-muted-foreground/30 hover:-translate-y-0.5 transition-all duration-200 group"
   >
     <div className="flex items-start gap-3 mb-3">
