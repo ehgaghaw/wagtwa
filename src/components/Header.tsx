@@ -1,8 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, Wallet } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 const navLinks = [
   { path: '/', label: 'Home' },
@@ -14,7 +14,6 @@ const navLinks = [
 
 const Header = () => {
   const location = useLocation();
-  const [walletConnected, setWalletConnected] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -49,16 +48,7 @@ const Header = () => {
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
             <Bell className="h-4 w-4" />
           </Button>
-          <Button
-            onClick={() => setWalletConnected(!walletConnected)}
-            className={walletConnected
-              ? 'bg-muted text-primary border border-primary/30 hover:bg-muted/80 font-mono text-xs'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90 font-mono text-xs font-bold'
-            }
-          >
-            <Wallet className="h-4 w-4 mr-2" />
-            {walletConnected ? 'DgN4...x9Rq' : 'Connect Wallet'}
-          </Button>
+          <WalletMultiButton className="!bg-primary !text-primary-foreground hover:!bg-primary/90 !font-mono !text-xs !font-bold !rounded-md !h-9 !px-4" />
         </div>
       </div>
     </header>
