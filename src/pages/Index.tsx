@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+// Button removed — unused
 import CoinCard from '@/components/CoinCard';
 import { BrainrotCoin } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
