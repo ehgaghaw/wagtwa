@@ -1,8 +1,11 @@
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
 import type { WalletContextState } from '@solana/wallet-adapter-react';
+import { supabase } from '@/integrations/supabase/client';
 
-const TRADE_API = 'https://pumpportal.fun/api/trade-local';
-const IPFS_API = 'https://pump.fun/api/ipfs';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const PROXY_BASE = `${SUPABASE_URL}/functions/v1/pump-proxy`;
 
 export interface TokenMetadataInput {
   name: string;
@@ -23,7 +26,7 @@ export interface TradeParams {
   priorityFee?: number;
 }
 
-/** Upload metadata + image to IPFS via pump.fun */
+/** Upload metadata + image to IPFS via proxy */
 export async function uploadToIPFS(meta: TokenMetadataInput): Promise<string> {
   const formData = new FormData();
   formData.append('file', meta.image);
@@ -35,13 +38,25 @@ export async function uploadToIPFS(meta: TokenMetadataInput): Promise<string> {
   if (meta.telegram) formData.append('telegram', meta.telegram);
   if (meta.website) formData.append('website', meta.website);
 
-  const res = await fetch(IPFS_API, { method: 'POST', body: formData });
-  if (!res.ok) throw new Error(`IPFS upload failed: ${res.statusText}`);
+  const res = await fetch(`${PROXY_BASE}?action=ipfs`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(data.error || `IPFS upload failed: ${res.statusText}`);
+  }
+
   const data = await res.json();
   return data.metadataUri;
 }
 
-/** Create a new token via PumpPortal */
+/** Create a new token via PumpPortal proxy */
 export async function createToken(
   wallet: WalletContextState,
   connection: Connection,
@@ -58,7 +73,7 @@ export async function createToken(
   // Step 2: Generate mint keypair
   const mintKeypair = Keypair.generate();
 
-  // Step 3: Get transaction from PumpPortal
+  // Step 3: Get transaction from PumpPortal via proxy
   const body = {
     publicKey: wallet.publicKey.toBase58(),
     action: 'create',
@@ -75,15 +90,19 @@ export async function createToken(
     pool: 'pump',
   };
 
-  const res = await fetch(TRADE_API, {
+  const res = await fetch(`${PROXY_BASE}?action=trade`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    },
     body: JSON.stringify(body),
   });
 
-  if (res.status !== 200) {
-    const text = await res.text();
-    throw new Error(`PumpPortal create failed: ${text}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(data.error || `PumpPortal create failed: ${res.statusText}`);
   }
 
   // Step 4: Deserialize, sign, send
@@ -106,7 +125,7 @@ export async function createToken(
   return { signature, mintAddress: mintKeypair.publicKey.toBase58() };
 }
 
-/** Buy or sell tokens via PumpPortal */
+/** Buy or sell tokens via PumpPortal proxy */
 export async function tradeToken(
   wallet: WalletContextState,
   connection: Connection,
@@ -127,15 +146,19 @@ export async function tradeToken(
     pool: 'pump',
   };
 
-  const res = await fetch(TRADE_API, {
+  const res = await fetch(`${PROXY_BASE}?action=trade`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    },
     body: JSON.stringify(body),
   });
 
-  if (res.status !== 200) {
-    const text = await res.text();
-    throw new Error(`Trade failed: ${text}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(data.error || `Trade failed: ${res.statusText}`);
   }
 
   const txData = await res.arrayBuffer();
