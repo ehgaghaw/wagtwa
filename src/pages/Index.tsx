@@ -78,7 +78,7 @@ const Index = () => {
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             >
-              Launch a Coin ✦
+              Launch a Brainrot Character ✦
             </motion.span>
           </Link>
           <Link to="/explore">
@@ -106,7 +106,7 @@ const Index = () => {
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-sm">No coins launched yet. Be the first!</p>
               <Link to="/launch" className="text-primary hover:text-primary/80 text-sm font-semibold mt-4 inline-block">
-                Launch a Coin →
+                Launch a Brainrot Character →
               </Link>
             </div>
           ) : (
