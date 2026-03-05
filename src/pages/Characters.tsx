@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ThumbsUp, ThumbsDown, Rocket, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { brainrotCharacters, type BrainrotUniverse } from '@/data/mockData';
+import { brainrotCharacters, type BrainrotUniverse, type BrainrotCharacter } from '@/data/mockData';
 import { Link } from 'react-router-dom';
 import UniverseFilter from '@/components/UniverseFilter';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,8 +28,27 @@ const Characters = () => {
   const [universe, setUniverse] = useState<BrainrotUniverse>('All');
   const [voteCounts, setVoteCounts] = useState<VoteCounts>({});
   const [userVotes, setUserVotes] = useState<UserVotes>({});
+  const [dbCharacters, setDbCharacters] = useState<BrainrotCharacter[]>([]);
   const wallet = useWallet();
   const walletAddress = wallet.publicKey?.toBase58() || null;
+
+  const fetchDbCharacters = useCallback(async () => {
+    const { data } = await supabase.from('characters').select('*');
+    if (!data) return;
+    const mapped: BrainrotCharacter[] = data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      lore: c.lore || '',
+      image: c.image_url,
+      avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
+      avatarLetter: c.name.charAt(0).toUpperCase(),
+      tags: c.tags || [],
+      votes: c.upvotes - c.downvotes,
+      hasCoin: false,
+      universe: 'Community' as BrainrotUniverse,
+    }));
+    setDbCharacters(mapped);
+  }, []);
 
   const fetchVotes = useCallback(async () => {
     const { data } = await supabase.from('character_votes').select('*');
@@ -51,14 +70,21 @@ const Characters = () => {
 
   useEffect(() => {
     fetchVotes();
+    fetchDbCharacters();
     const channel = supabase
       .channel('character-votes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'character_votes' }, () => {
         fetchVotes();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchVotes]);
+    const charChannel = supabase
+      .channel('characters-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'characters' }, () => {
+        fetchDbCharacters();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(charChannel); };
+  }, [fetchVotes, fetchDbCharacters]);
 
   const handleVote = async (characterId: string, voteType: 'up' | 'down') => {
     if (!walletAddress) {
@@ -79,7 +105,8 @@ const Characters = () => {
     }
   };
 
-  const filtered = brainrotCharacters.filter(c => universe === 'All' || c.universe === universe);
+  const allCharacters = [...brainrotCharacters, ...dbCharacters];
+  const filtered = allCharacters.filter(c => universe === 'All' || c.universe === universe);
 
   return (
     <div className="container py-6">
@@ -110,12 +137,20 @@ const Characters = () => {
               className="bg-card border border-border rounded-md p-4 hover:border-muted-foreground/30 transition-all duration-200"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-foreground text-sm shrink-0 border border-border"
-                  style={{ background: char.avatarGradient }}
-                >
-                  {char.avatarLetter}
-                </div>
+                {char.image ? (
+                  <img
+                    src={char.image}
+                    alt={char.name}
+                    className="w-10 h-10 rounded-full object-cover shrink-0 border border-border"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-foreground text-sm shrink-0 border border-border"
+                    style={{ background: char.avatarGradient }}
+                  >
+                    {char.avatarLetter}
+                  </div>
+                )}
                 <div>
                   <h3 className="text-sm font-semibold">{char.name}</h3>
                   <span className="text-xs text-muted-foreground">{char.universe}</span>
