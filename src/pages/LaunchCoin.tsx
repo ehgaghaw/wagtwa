@@ -3,7 +3,7 @@ import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, Al
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { brainrotCharacters, BRAINROT_UNIVERSES, type BrainrotUniverse } from '@/data/mockData';
+import { BRAINROT_UNIVERSES, type BrainrotUniverse } from '@/data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
@@ -12,7 +12,6 @@ import { toast } from '@/hooks/use-toast';
 
 const LaunchCoin = () => {
   const [step, setStep] = useState(1);
-  const [selectedChar, setSelectedChar] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', ticker: '', description: '', initialBuy: '0', twitter: '', telegram: '', website: '', universe: 'Italian Brainrot' as BrainrotUniverse });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -22,13 +21,12 @@ const LaunchCoin = () => {
   const wallet = useWallet();
   const { connection } = useConnection();
 
-  const selChar = brainrotCharacters.find(c => c.id === selectedChar);
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      setImagePreview(url);
     }
   };
 
@@ -64,6 +62,8 @@ const LaunchCoin = () => {
     }
   };
 
+  const totalSteps = 3;
+
   return (
     <div className="container py-8 max-w-3xl">
       <h1 className="font-display text-3xl font-bold mb-2">Launch a Coin</h1>
@@ -71,12 +71,12 @@ const LaunchCoin = () => {
 
       {/* Steps indicator */}
       <div className="flex items-center gap-2 mb-8">
-        {[1,2,3,4].map(s => (
+        {[1, 2, 3].map(s => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-display font-bold ${
               step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
             }`}>{step > s ? <Check className="h-4 w-4" /> : s}</div>
-            {s < 4 && <div className={`w-12 h-0.5 ${step > s ? 'bg-primary' : 'bg-muted'}`} />}
+            {s < totalSteps && <div className={`w-12 h-0.5 ${step > s ? 'bg-primary' : 'bg-muted'}`} />}
           </div>
         ))}
       </div>
@@ -84,51 +84,32 @@ const LaunchCoin = () => {
       <AnimatePresence mode="wait">
         <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
           {step === 1 && (
-            <div>
-              <h2 className="font-display text-lg font-bold mb-4">Choose a Character</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {brainrotCharacters.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => { setSelectedChar(c.id); setForm(f => ({ ...f, name: c.name })); }}
-                    className={`p-4 rounded-xl border text-left transition-all ${
-                      selectedChar === c.id
-                        ? 'border-primary bg-primary/10 glow-pink'
-                        : 'border-border bg-card hover:border-primary/30'
-                    }`}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-display font-bold text-white text-sm mb-2 border border-border/50"
-                      style={{ background: c.avatarGradient }}
-                    >
-                      {c.avatarLetter}
-                    </div>
-                    <p className="font-display text-sm font-bold">{c.name}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{c.lore}</p>
-                    {c.hasCoin && (
-                      <span className="text-xs text-destructive mt-1 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Coin exists
-                      </span>
-                    )}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setSelectedChar('custom')}
-                  className={`p-4 rounded-xl border text-center transition-all flex flex-col items-center justify-center ${
-                    selectedChar === 'custom' ? 'border-primary bg-primary/10' : 'border-border border-dashed bg-card hover:border-primary/30'
-                  }`}
-                >
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="font-display text-sm font-bold">Custom</p>
-                  <p className="text-xs text-muted-foreground">Upload your own</p>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
             <div className="space-y-4">
-              <h2 className="font-display text-lg font-bold mb-4">Coin Details</h2>
+              <h2 className="font-display text-lg font-bold mb-4">Your Character & Coin Details</h2>
+
+              {/* Image upload first */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Character Image / Coin Logo *</label>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer"
+                >
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Preview" className="w-24 h-24 mx-auto rounded-xl object-cover mb-2" />
+                  ) : (
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                  )}
+                  <p className="text-sm text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload your character image'}</p>
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Coin Name</label>
                 <Input className="bg-muted border-border" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
@@ -153,31 +134,10 @@ const LaunchCoin = () => {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Coin Image / Logo</label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer"
-                >
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="w-24 h-24 mx-auto rounded-xl object-cover mb-2" />
-                  ) : (
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  )}
-                  <p className="text-sm text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload'}</p>
-                </div>
-              </div>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Launch Parameters</h2>
               <div>
@@ -200,20 +160,13 @@ const LaunchCoin = () => {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Review & Launch</h2>
               <div className="glass-card rounded-xl p-6 space-y-3">
                 <div className="flex items-center gap-4">
                   {imagePreview ? (
                     <img src={imagePreview} alt="Coin" className="w-16 h-16 rounded-xl object-cover" />
-                  ) : selChar ? (
-                    <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center font-display font-bold text-white text-xl border-2 border-border/50"
-                      style={{ background: selChar.avatarGradient }}
-                    >
-                      {selChar.avatarLetter}
-                    </div>
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
                       <Upload className="h-6 w-6 text-muted-foreground" />
@@ -251,20 +204,10 @@ const LaunchCoin = () => {
                 <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-2">
                   <p className="font-display font-bold text-primary">Token Launched!</p>
                   <p className="text-xs text-muted-foreground">Mint: {launchResult.mintAddress}</p>
-                  <a
-                    href={`https://solscan.io/tx/${launchResult.signature}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
+                  <a href={`https://solscan.io/tx/${launchResult.signature}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     <ExternalLink className="h-3 w-3" /> View on Solscan
                   </a>
-                  <a
-                    href={`https://pump.fun/${launchResult.mintAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline ml-4"
-                  >
+                  <a href={`https://pump.fun/${launchResult.mintAddress}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline ml-4">
                     <ExternalLink className="h-3 w-3" /> View on Pump.fun
                   </a>
                 </div>
@@ -290,11 +233,11 @@ const LaunchCoin = () => {
       </AnimatePresence>
 
       <div className="flex justify-between mt-8">
-        <Button variant="outline" onClick={() => setStep(s => Math.max(1, s-1))} disabled={step === 1} className="border-border text-muted-foreground rounded-xl">
+        <Button variant="outline" onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} className="border-border text-muted-foreground rounded-xl">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back
         </Button>
-        {step < 4 && (
-          <Button onClick={() => setStep(s => s+1)} className="gradient-btn text-primary-foreground font-display font-bold rounded-xl border-0">
+        {step < totalSteps && (
+          <Button onClick={() => setStep(s => s + 1)} className="gradient-btn text-primary-foreground font-display font-bold rounded-xl border-0">
             Next <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         )}
