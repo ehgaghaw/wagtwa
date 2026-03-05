@@ -24,7 +24,7 @@ const Index = () => {
           The Brainrot Launchpad
         </h1>
         <p className="text-sm md:text-base text-muted-foreground mb-8 max-w-md mx-auto">
-          Launch meme coins. Trade the bonding curve. Go viral.
+          Launch Your Brainrot. Let it Rot.
         </p>
         <div className="flex gap-3 justify-center">
           <Link to="/launch">
