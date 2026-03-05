@@ -32,6 +32,7 @@ export interface BrainrotCoin {
   holders: number;
   tags: string[];
   universe: BrainrotUniverse;
+  mintAddress?: string;
 }
 
 export interface BrainrotCharacter {

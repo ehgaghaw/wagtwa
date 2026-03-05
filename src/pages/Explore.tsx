@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Flame, Clock, TrendingUp, BarChart3, GraduationCap, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import CoinCard from '@/components/CoinCard';
 import UniverseFilter from '@/components/UniverseFilter';
 import { type BrainrotUniverse, type BrainrotCoin } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
+import { useDexScreenerBatch } from '@/hooks/useDexScreener';
 
 type Filter = 'trending' | 'new' | 'gainers' | 'volume' | 'graduating';
 
@@ -20,33 +21,13 @@ const Explore = () => {
   const [filter, setFilter] = useState<Filter>('trending');
   const [search, setSearch] = useState('');
   const [universe, setUniverse] = useState<BrainrotUniverse>('All');
-  const [launchedCoins, setLaunchedCoins] = useState<BrainrotCoin[]>([]);
+  const [rawCoins, setRawCoins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchLaunchedCoins = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.from('launched_coins' as any).select('*').order('created_at', { ascending: false });
-    if (!data) { setLoading(false); return; }
-    const mapped: BrainrotCoin[] = (data as any[]).map((c, i) => ({
-      id: c.id,
-      name: c.name,
-      ticker: c.ticker,
-      description: c.description || '',
-      image: c.image_url || '',
-      avatarGradient: `linear-gradient(135deg, hsl(${(i * 53) % 360} 60% 45%), hsl(${(i * 53 + 40) % 360} 50% 55%))`,
-      avatarLetter: c.ticker?.charAt(0) || c.name?.charAt(0) || '?',
-      price: 0,
-      priceChange24h: 0,
-      marketCap: 0,
-      volume24h: 0,
-      bondingProgress: 0,
-      creator: c.wallet_address,
-      createdAt: new Date(c.created_at).toLocaleDateString(),
-      holders: 0,
-      tags: [],
-      universe: (c.universe || 'Italian Brainrot') as BrainrotUniverse,
-    }));
-    setLaunchedCoins(mapped);
+    setRawCoins((data as any[]) || []);
     setLoading(false);
   }, []);
 
@@ -60,6 +41,37 @@ const Explore = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchLaunchedCoins]);
+
+  // Collect all mint addresses for batch DexScreener fetch
+  const mintAddresses = useMemo(() => rawCoins.map(c => c.mint_address).filter(Boolean), [rawCoins]);
+  const { data: dexData, loading: dexLoading } = useDexScreenerBatch(mintAddresses);
+
+  // Merge DB data with live DexScreener data
+  const launchedCoins: BrainrotCoin[] = useMemo(() => {
+    return rawCoins.map((c, i) => {
+      const live = c.mint_address ? dexData[c.mint_address] : null;
+      return {
+        id: c.id,
+        name: c.name,
+        ticker: c.ticker,
+        description: c.description || '',
+        image: c.image_url || '',
+        avatarGradient: `linear-gradient(135deg, hsl(${(i * 53) % 360} 60% 45%), hsl(${(i * 53 + 40) % 360} 50% 55%))`,
+        avatarLetter: c.ticker?.charAt(0) || c.name?.charAt(0) || '?',
+        price: live?.priceUsd ?? 0,
+        priceChange24h: live?.priceChange24h ?? 0,
+        marketCap: live?.marketCap ?? 0,
+        volume24h: live?.volume24h ?? 0,
+        bondingProgress: 0,
+        creator: c.wallet_address,
+        createdAt: new Date(c.created_at).toLocaleDateString(),
+        holders: 0,
+        tags: [],
+        universe: (c.universe || 'Italian Brainrot') as BrainrotUniverse,
+        mintAddress: c.mint_address || undefined,
+      };
+    });
+  }, [rawCoins, dexData]);
 
   const filtered = launchedCoins
     .filter(c => universe === 'All' || c.universe === universe)
@@ -112,7 +124,7 @@ const Explore = () => {
         </div>
       </div>
 
-      {loading && (
+      {(loading || dexLoading) && (
         <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" /> Loading coins...
         </div>
