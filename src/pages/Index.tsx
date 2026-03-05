@@ -4,7 +4,7 @@ import { Rocket, Flame, Clock, GraduationCap, Zap, Users, BarChart3, ArrowRight 
 import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import { mockCoins } from '@/data/mockData';
-import rotLogoAnim from '@/assets/rot-logo-anim.mov';
+import rotLogoAnim from '@/assets/rot-logo-anim.webm';
 
 const stats = [
   { label: 'Coins Launched', value: '2.4K+', icon: Rocket },
@@ -41,7 +41,6 @@ const Index = () => {
               muted
               playsInline
               className="h-32 md:h-44 lg:h-52 w-auto mx-auto"
-              style={{ mixBlendMode: 'screen' }}
             />
           </motion.div>
           <motion.h1
