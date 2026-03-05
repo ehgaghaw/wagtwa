@@ -12,7 +12,7 @@ import Explore from "./pages/Explore";
 import CoinDetail from "./pages/CoinDetail";
 import LaunchCoin from "./pages/LaunchCoin";
 import Characters from "./pages/Characters";
-import Videos from "./pages/Videos";
+
 import CreateCharacter from "./pages/CreateCharacter";
 import Portfolio from "./pages/Portfolio";
 import NotFound from "./pages/NotFound";
@@ -37,7 +37,7 @@ const App = () => (
                 <Route path="/token/:mintAddress" element={<CoinDetail />} />
                 <Route path="/launch" element={<LaunchCoin />} />
                 <Route path="/characters" element={<Characters />} />
-                <Route path="/videos" element={<Videos />} />
+                
                 <Route path="/create-character" element={<CreateCharacter />} />
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="*" element={<NotFound />} />
