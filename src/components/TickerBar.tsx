@@ -5,17 +5,17 @@ import CoinAvatar from './CoinAvatar';
 const TickerBar = () => {
   const items = [...mockCoins, ...mockCoins];
   return (
-    <div className="border-b border-border bg-muted/20 overflow-hidden">
-      <div className="flex animate-marquee whitespace-nowrap py-2.5">
+    <div className="border-b border-border bg-card overflow-hidden">
+      <div className="flex animate-marquee whitespace-nowrap py-1.5">
         {items.map((coin, i) => (
-          <div key={`${coin.id}-${i}`} className="flex items-center gap-2 mx-6 text-xs">
-            <CoinAvatar coin={coin} size={20} />
-            <span className="text-foreground font-semibold">${coin.ticker}</span>
-            <span className="text-muted-foreground">${coin.price.toFixed(6)}</span>
-            <span className={`flex items-center gap-0.5 font-bold ${
-              coin.priceChange24h >= 0 ? 'text-emerald-400' : 'text-red-400'
+          <div key={`${coin.id}-${i}`} className="flex items-center gap-1.5 mx-5 text-xs">
+            <CoinAvatar coin={coin} size={16} />
+            <span className="text-foreground font-medium">${coin.ticker}</span>
+            <span className="text-muted-foreground font-mono-num">${coin.price.toFixed(6)}</span>
+            <span className={`flex items-center gap-0.5 font-bold font-mono-num ${
+              coin.priceChange24h >= 0 ? 'text-positive' : 'text-negative'
             }`}>
-              {coin.priceChange24h >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {coin.priceChange24h >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
               {coin.priceChange24h >= 0 ? '+' : ''}{coin.priceChange24h.toFixed(1)}%
             </span>
           </div>
