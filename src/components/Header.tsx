@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import rotLogo from '@/assets/rot-logo.png';
 
 const navLinks = [
   { path: '/', label: 'Home' },
@@ -20,13 +21,12 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2">
-            <motion.span
-              className="font-display text-2xl font-black text-primary text-glow-green tracking-widest"
-              whileHover={{ scale: 1.05 }}
-              style={{ fontStyle: 'italic' }}
-            >
-              R<span className="text-destructive text-glow-red">O</span>T
-            </motion.span>
+            <motion.img
+              src={rotLogo}
+              alt="ROT"
+              className="h-10 w-auto drop-shadow-[0_0_12px_hsl(120,100%,50%,0.4)]"
+              whileHover={{ scale: 1.08 }}
+            />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map(({ path, label }) => (
