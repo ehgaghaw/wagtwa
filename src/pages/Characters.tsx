@@ -110,7 +110,7 @@ const Characters = () => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold">Characters</h1>
-          <p className="text-muted-foreground text-xs">The pantheon of brainrot</p>
+          <p className="text-muted-foreground text-xs">The roster of rot</p>
         </div>
         <Link to="/create-character">
           <Button size="sm" className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-xs">
