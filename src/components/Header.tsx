@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import rotLogo from '@/assets/rot-logo.png';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { useState } from 'react';
@@ -19,10 +20,10 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="container flex h-12 items-center justify-between">
+      <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link to="/" className="font-bold text-lg text-foreground tracking-tight">
-            ROT
+          <Link to="/" className="flex items-center">
+            <img src={rotLogo} alt="ROT" className="h-10 w-auto" style={{ filter: 'invert(1)', mixBlendMode: 'screen' }} />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map(({ path, label }) => (
