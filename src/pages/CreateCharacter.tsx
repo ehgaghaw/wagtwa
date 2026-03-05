@@ -9,8 +9,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { BRAINROT_UNIVERSES, type BrainrotUniverse } from '@/data/mockData';
 
 const presetTags = ['cursed', 'wholesome rot', 'sigma', 'NPC', 'cooked'];
+const universeOptions = BRAINROT_UNIVERSES.filter(u => u !== 'All');
 
 const placeholderPrompts = [
   'angry tung tung with sunglasses...',
@@ -35,6 +37,7 @@ const CreateCharacter = () => {
   const [lore, setLore] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState('');
+  const [selectedUniverse, setSelectedUniverse] = useState<string>('');
 
   // Inspiration image
   const [inspirationImage, setInspirationImage] = useState<string | null>(null);
@@ -152,7 +155,7 @@ const CreateCharacter = () => {
     detailsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const canSubmit = generatedImage && name.trim() && lore.trim() && selectedTags.length > 0;
+  const canSubmit = generatedImage && name.trim() && lore.trim() && selectedTags.length > 0 && selectedUniverse;
 
   const handleSubmitToGallery = async () => {
     if (!wallet.publicKey) {
@@ -175,6 +178,10 @@ const CreateCharacter = () => {
       toast({ title: 'Select at least one tag', variant: 'destructive' });
       return;
     }
+    if (!selectedUniverse) {
+      toast({ title: 'Select a universe', variant: 'destructive' });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -184,13 +191,14 @@ const CreateCharacter = () => {
         lore: lore.trim(),
         tags: selectedTags,
         image_url: generatedImage,
-      });
+        universe: selectedUniverse,
+      } as any);
       if (error) throw error;
       toast({ title: 'Character submitted to gallery!' });
-      // Reset form
       setName('');
       setLore('');
       setSelectedTags([]);
+      setSelectedUniverse('');
       setGeneratedImage(null);
       setAiPrompt('');
     } catch (err: any) {
@@ -367,6 +375,24 @@ const CreateCharacter = () => {
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Lore / Backstory *</label>
           <Textarea className="bg-muted border-border font-mono" placeholder="What is this creature's deal?" value={lore} onChange={e => setLore(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-2 block">Universe *</label>
+          <div className="flex gap-2 flex-wrap">
+            {universeOptions.map(u => (
+              <button
+                key={u}
+                onClick={() => setSelectedUniverse(u)}
+                className={`px-3 py-1.5 rounded text-xs font-mono transition-colors border whitespace-nowrap ${
+                  selectedUniverse === u
+                    ? 'bg-card border-primary text-foreground'
+                    : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50'
+                }`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="text-xs text-muted-foreground mb-2 block">Tags *</label>

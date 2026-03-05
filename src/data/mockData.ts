@@ -10,7 +10,6 @@ export const BRAINROT_UNIVERSES = [
   'American Brainrot',
   'Korean Brainrot',
   'Brazilian Brainrot',
-  'Community',
 ] as const;
 
 export type BrainrotUniverse = typeof BRAINROT_UNIVERSES[number];

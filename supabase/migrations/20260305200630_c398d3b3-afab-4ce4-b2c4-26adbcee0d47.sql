@@ -1,0 +1,1 @@
+ALTER TABLE public.characters ADD COLUMN universe text NOT NULL DEFAULT 'Italian Brainrot';
