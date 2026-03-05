@@ -14,7 +14,7 @@ const navLinks = [
   { path: '/explore', label: 'Explore' },
   { path: '/launch', label: 'Launch' },
   { path: '/characters', label: 'Characters' },
-  { path: '/videos', label: 'ROT' },
+  
   { path: '/portfolio', label: 'Portfolio' },
 ];
 
