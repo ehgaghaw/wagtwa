@@ -28,7 +28,7 @@ const Index = () => {
               muted
               playsInline
               className="h-40 md:h-56 lg:h-64 w-auto mx-auto drop-shadow-[0_0_40px_hsl(120,100%,50%,0.3)]"
-              style={{ background: 'transparent' }}
+              style={{ mixBlendMode: 'screen' }}
             />
           </motion.div>
           <motion.p
