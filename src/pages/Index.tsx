@@ -4,7 +4,7 @@ import { Rocket, Flame, Clock, GraduationCap, Zap, Users, BarChart3, ArrowRight 
 import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import { mockCoins } from '@/data/mockData';
-import rotLogoAnim from '@/assets/rot-logo-anim.mp4';
+import rotLogoAnim from '@/assets/rot-logo-anim.mov';
 
 const stats = [
   { label: 'Coins Launched', value: '2.4K+', icon: Rocket },
