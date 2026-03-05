@@ -13,8 +13,8 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const tags = ['cursed', 'wholesome rot', 'sigma', 'NPC', 'cooked'];
-const heads = ['🤡', '💀', '👽', '🤖', '🐸', '😈', '🗿', '👾'];
-const accessories = ['🎩', '🕶️', '👑', '🎭', '🧢', '💎', '🔥', '⭐'];
+const heads = ['Clown', 'Skull', 'Alien', 'Robot', 'Frog', 'Devil', 'Moai', 'Ghost'];
+const accessories = ['Top Hat', 'Shades', 'Crown', 'Mask', 'Cap', 'Diamond', 'Flame', 'Star'];
 
 const COST_SOL = 0.01;
 const FREE_GENERATIONS = 3;
@@ -140,7 +140,7 @@ const CreateCharacter = () => {
       const signed = await wallet.signTransaction(transaction);
       const sig = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(sig, 'confirmed');
-      toast({ title: '💸 Payment confirmed!', description: `${COST_SOL} SOL sent` });
+      toast({ title: 'Payment confirmed!', description: `${COST_SOL} SOL sent` });
       return true;
     } catch (err: any) {
       toast({ title: 'Payment failed', description: err.message, variant: 'destructive' });
@@ -191,7 +191,7 @@ const CreateCharacter = () => {
           cooldownRemaining: 30,
         });
         setCooldown(30);
-        toast({ title: '🧠 Character generated!' });
+        toast({ title: 'Character generated!' });
       } else {
         throw new Error(data?.error || 'No image returned');
       }
@@ -223,17 +223,18 @@ const CreateCharacter = () => {
       {/* Mode tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {([
-          { key: 'ai' as const, label: '🧠 AI Generate' },
-          { key: 'builder' as const, label: '🎨 Character Builder' },
-          { key: 'upload' as const, label: '📁 Upload Art' },
+          { key: 'ai' as const, label: 'AI Generate', icon: Brain },
+          { key: 'builder' as const, label: 'Character Builder', icon: Sparkles },
+          { key: 'upload' as const, label: 'Upload Art', icon: Upload },
         ]).map(m => (
           <button
             key={m.key}
             onClick={() => setMode(m.key)}
-            className={`px-4 py-2 rounded-md text-sm font-mono transition-colors ${
-              mode === m.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+              mode === m.key ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/30'
             }`}
           >
+            <m.icon className="h-3.5 w-3.5" />
             {m.label}
           </button>
         ))}
@@ -385,7 +386,7 @@ const CreateCharacter = () => {
             <label className="text-xs text-muted-foreground mb-2 block">Head / Base</label>
             <div className="flex gap-2 flex-wrap">
               {heads.map(h => (
-                <button key={h} onClick={() => setSelectedHead(h)} className={`text-3xl p-3 rounded-lg border transition-all ${selectedHead === h ? 'border-primary bg-primary/10 box-glow-green' : 'border-border bg-card hover:border-primary/30'}`}>{h}</button>
+                <button key={h} onClick={() => setSelectedHead(h)} className={`text-sm p-3 rounded-xl border font-medium transition-all ${selectedHead === h ? 'border-primary bg-primary/10 glow-pink' : 'border-border bg-card hover:border-primary/30'}`}>{h}</button>
               ))}
             </div>
           </div>
@@ -393,14 +394,14 @@ const CreateCharacter = () => {
             <label className="text-xs text-muted-foreground mb-2 block">Accessory</label>
             <div className="flex gap-2 flex-wrap">
               {accessories.map(a => (
-                <button key={a} onClick={() => setSelectedAccessory(a)} className={`text-3xl p-3 rounded-lg border transition-all ${selectedAccessory === a ? 'border-secondary bg-secondary/10 box-glow-purple' : 'border-border bg-card hover:border-secondary/30'}`}>{a}</button>
+                <button key={a} onClick={() => setSelectedAccessory(a)} className={`text-sm p-3 rounded-xl border font-medium transition-all ${selectedAccessory === a ? 'border-secondary bg-secondary/10 glow-purple' : 'border-border bg-card hover:border-secondary/30'}`}>{a}</button>
               ))}
             </div>
           </div>
           {(selectedHead || selectedAccessory) && (
-            <div className="bg-card border border-border rounded-lg p-8 text-center">
+            <div className="glass-card rounded-xl p-8 text-center">
               <p className="text-xs text-muted-foreground mb-2">Preview</p>
-              <div className="text-6xl">{selectedHead}{selectedAccessory}</div>
+              <div className="text-xl font-display font-bold">{selectedHead} + {selectedAccessory}</div>
             </div>
           )}
         </div>
@@ -433,7 +434,7 @@ const CreateCharacter = () => {
             ))}
           </div>
         </div>
-        <Button className="w-full bg-secondary text-secondary-foreground font-display font-bold hover:bg-secondary/90 box-glow-purple">
+        <Button className="w-full gradient-btn text-primary-foreground font-display font-bold rounded-xl border-0">
           <Sparkles className="h-4 w-4 mr-2" /> Submit to Gallery
         </Button>
       </div>
