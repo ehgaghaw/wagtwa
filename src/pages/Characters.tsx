@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ThumbsUp, ThumbsDown, Rocket, Plus, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BRAINROT_UNIVERSES, type BrainrotUniverse, type BrainrotCharacter } from '@/data/mockData';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import UniverseFilter from '@/components/UniverseFilter';
 import { supabase } from '@/integrations/supabase/client';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -29,6 +29,7 @@ const Characters = () => {
   const [voteCounts, setVoteCounts] = useState<VoteCounts>({});
   const [userVotes, setUserVotes] = useState<UserVotes>({});
   const [characters, setCharacters] = useState<BrainrotCharacter[]>([]);
+  const navigate = useNavigate();
   const wallet = useWallet();
   const walletAddress = wallet.publicKey?.toBase58() || null;
 
@@ -182,11 +183,14 @@ const Characters = () => {
                     <span className="text-xs text-primary font-medium">View Coin</span>
                   </Link>
                 ) : (
-                  <Link to="/launch">
-                    <Button size="sm" variant="outline" className="text-xs border-primary text-primary hover:bg-primary/10 h-7">
-                      <Rocket className="h-3 w-3 mr-1" /> Launch
-                    </Button>
-                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-primary text-primary hover:bg-primary/10 h-7"
+                    onClick={() => navigate('/launch', { state: { prefill: { name: char.name, lore: char.lore, imageUrl: char.image, universe: char.universe } } })}
+                  >
+                    <Rocket className="h-3 w-3 mr-1" /> Launch
+                  </Button>
                 )}
               </div>
             </div>

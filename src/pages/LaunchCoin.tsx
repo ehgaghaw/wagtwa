@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,11 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { createToken, type TokenMetadataInput } from '@/services/pumpPortal';
 import { toast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 
 const LaunchCoin = () => {
+  const location = useLocation();
+  const prefill = (location.state as any)?.prefill;
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: '', ticker: '', description: '', initialBuy: '0', twitter: '', telegram: '', website: '', universe: 'Italian Brainrot' as BrainrotUniverse });
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -18,6 +21,21 @@ const LaunchCoin = () => {
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchResult, setLaunchResult] = useState<{ signature: string; mintAddress: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (prefill) {
+      setForm(f => ({
+        ...f,
+        name: prefill.name || f.name,
+        ticker: (prefill.name || '').toUpperCase().replace(/\s+/g, '').slice(0, 10) || f.ticker,
+        description: prefill.description || prefill.lore || f.description,
+        universe: prefill.universe || f.universe,
+      }));
+      if (prefill.imageUrl) {
+        setImagePreview(prefill.imageUrl);
+      }
+    }
+  }, []);
   const wallet = useWallet();
   const { connection } = useConnection();
 
