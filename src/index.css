@@ -127,16 +127,20 @@
 .wallet-adapter-button {
   background-color: hsl(0 0% 100%) !important;
   color: hsl(0 0% 0%) !important;
+  line-height: 1 !important;
 }
 .wallet-adapter-button:hover {
   background-color: hsl(0 0% 85%) !important;
 }
-.wallet-adapter-button-trigger::before {
-  content: 'Connect Wallet';
+.wallet-adapter-button:not([data-state]) {
+  font-size: 0 !important;
 }
-.wallet-adapter-button-trigger .wallet-adapter-button-start-icon,
-.wallet-adapter-button-trigger > span {
-  display: none;
+.wallet-adapter-button:not([data-state])::after {
+  content: 'Connect Wallet';
+  font-size: 12px;
+}
+.wallet-adapter-button .wallet-adapter-button-start-icon {
+  display: none !important;
 }
 
 /* Scrollbar */
