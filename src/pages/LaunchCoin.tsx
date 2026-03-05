@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle, Sparkles, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,6 +30,9 @@ const LaunchCoin = () => {
   const [launchStatus, setLaunchStatus] = useState<'idle' | 'creating' | 'done' | 'failed'>('idle');
   const [launchResult, setLaunchResult] = useState<{ mintAddress: string; transactionSignature: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [imageMode, setImageMode] = useState<'upload' | 'ai'>('upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,6 +58,36 @@ const LaunchCoin = () => {
     if (file) {
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleGenerateAI = async () => {
+    const prompt = aiPrompt.trim() || form.name;
+    if (!prompt) {
+      toast({ title: 'Enter a character name or AI prompt first', variant: 'destructive' });
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-character', {
+        body: {
+          prompt: `Create a brainrot meme character: ${prompt}. Style: bold, cartoonish, thick outlines, flat colors, meme energy, suitable for a crypto coin logo. White background.`,
+          walletAddress: wallet.publicKey?.toBase58() || 'anonymous',
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      if (data?.imageUrl) {
+        setImagePreview(data.imageUrl);
+        setImageFile(null); // AI-generated, no file
+        toast({ title: 'Character generated!' });
+      }
+    } catch (err: any) {
+      toast({ title: 'AI generation failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -117,7 +150,7 @@ const LaunchCoin = () => {
 
   return (
     <div className="container py-8 max-w-3xl">
-      <h1 className="font-display text-3xl font-bold mb-2">Launch a Coin</h1>
+      <h1 className="font-display text-3xl font-bold mb-2">Launch a Brainrot Character</h1>
       <p className="text-muted-foreground text-sm mb-8">Deploy your brainrot on Solana via Pump.fun's bonding curve</p>
 
       <div className="flex items-center gap-2 mb-8">
@@ -137,20 +170,84 @@ const LaunchCoin = () => {
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Your Character & Coin Details</h2>
+
+              {/* Image section with upload/AI toggle */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Character Image / Coin Logo *</label>
-                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer w-32 h-32 flex flex-col items-center justify-center"
-                >
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="w-full h-full rounded-lg object-cover" />
-                  ) : (
-                    <><Upload className="h-6 w-6 text-muted-foreground mb-1" /><p className="text-xs text-muted-foreground">Click to upload</p></>
-                  )}
+                <label className="text-xs text-muted-foreground mb-2 block">Character Image *</label>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => setImageMode('upload')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-all ${
+                      imageMode === 'upload' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:text-foreground'
+                    }`}
+                  >
+                    <ImageIcon className="h-3 w-3" /> Upload
+                  </button>
+                  <button
+                    onClick={() => setImageMode('ai')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-all ${
+                      imageMode === 'ai' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:text-foreground'
+                    }`}
+                  >
+                    <Sparkles className="h-3 w-3" /> AI Generate
+                  </button>
                 </div>
+
+                {imageMode === 'upload' ? (
+                  <div>
+                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer w-32 h-32 flex flex-col items-center justify-center"
+                    >
+                      {imagePreview ? (
+                        <img src={imagePreview} alt="Preview" className="w-full h-full rounded-lg object-cover" />
+                      ) : (
+                        <><Upload className="h-6 w-6 text-muted-foreground mb-1" /><p className="text-xs text-muted-foreground">Click to upload</p></>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        className="bg-muted border-border flex-1"
+                        placeholder="Describe your character (or leave blank to use name)"
+                        value={aiPrompt}
+                        onChange={e => setAiPrompt(e.target.value)}
+                      />
+                      <Button
+                        onClick={handleGenerateAI}
+                        disabled={isGeneratingImage}
+                        className="bg-primary text-primary-foreground shrink-0"
+                        size="sm"
+                      >
+                        {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    {imagePreview && (
+                      <div className="w-32 h-32 rounded-xl overflow-hidden border border-border">
+                        <img src={imagePreview} alt="Generated" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    {isGeneratingImage && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Generating your brainrot character...
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {imagePreview && (
+                  <button
+                    onClick={() => { setImagePreview(null); setImageFile(null); }}
+                    className="text-xs text-destructive hover:underline mt-2"
+                  >
+                    Remove image
+                  </button>
+                )}
               </div>
+
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Coin Name</label>
                 <Input className="bg-muted border-border" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
@@ -198,15 +295,15 @@ const LaunchCoin = () => {
           {step === 3 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Review & Launch</h2>
-              <div className="glass-card rounded-xl p-6 space-y-3">
+              <div className="bg-card border border-border rounded-xl p-6 space-y-3">
                 <div className="flex items-center gap-4">
                   {imagePreview ? (
-                    <img src={imagePreview} alt="Coin" className="w-16 h-16 rounded-xl object-cover" />
+                    <img src={imagePreview} alt="Coin" className="w-16 h-16 rounded-xl object-cover border border-border" />
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center"><Upload className="h-6 w-6 text-muted-foreground" /></div>
                   )}
                   <div>
-                    <p className="font-display text-xl font-bold">{form.name || 'Unnamed Coin'}</p>
+                    <p className="font-display text-xl font-bold">{form.name || 'Unnamed'}</p>
                     <p className="text-sm text-primary">${form.ticker || 'TICKER'}</p>
                   </div>
                 </div>
@@ -224,14 +321,14 @@ const LaunchCoin = () => {
 
                 {!imageFile && !imagePreview && (
                   <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" /> Go back and upload a coin image
+                    <AlertTriangle className="h-3 w-3" /> Go back and upload or generate a character image
                   </p>
                 )}
               </div>
 
               {launchStatus === 'done' && launchResult ? (
                 <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-2">
-                  <p className="font-display font-bold text-primary">Token Launched!</p>
+                  <p className="font-display font-bold text-primary">Character Launched!</p>
                   <p className="text-xs text-muted-foreground">Mint: {launchResult.mintAddress}</p>
                   <div className="flex gap-4">
                     <a href={`https://pump.fun/${launchResult.mintAddress}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
@@ -255,14 +352,14 @@ const LaunchCoin = () => {
                   className="w-full gradient-btn text-primary-foreground font-display font-bold text-lg py-6 rounded-xl border-0 disabled:opacity-50"
                 >
                   {isLaunching ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating Your Token...</>
+                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating Your Character...</>
                   ) : (
                     <><Rocket className="mr-2 h-5 w-5" /> Launch on Pump.fun</>
                   )}
                 </Button>
               )}
               <p className="text-xs text-center text-muted-foreground">
-                Your token will be deployed on Pump.fun's bonding curve on Solana
+                Your character will be deployed on Pump.fun's bonding curve on Solana
               </p>
             </div>
           )}
