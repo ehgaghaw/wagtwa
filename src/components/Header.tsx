@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { useState } from 'react';
 import rotLogo from '@/assets/rot-logo.png';
 
 const navLinks = [
@@ -15,27 +17,29 @@ const navLinks = [
 
 const Header = () => {
   const location = useLocation();
+  const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/60 backdrop-blur-2xl">
       <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2">
+        <div className="flex items-center gap-10">
+          <Link to="/" className="flex items-center gap-2.5">
             <motion.img
               src={rotLogo}
               alt="ROT"
-              className="h-10 w-auto drop-shadow-[0_0_12px_hsl(120,100%,50%,0.4)]"
-              whileHover={{ scale: 1.08 }}
+              className="h-8 w-auto"
+              whileHover={{ scale: 1.05 }}
             />
+            <span className="font-display font-bold text-lg text-foreground">ROT</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map(({ path, label }) => (
               <Link
                 key={path}
                 to={path}
-                className={`px-3 py-2 text-sm font-mono transition-colors rounded-md ${
+                className={`px-3.5 py-2 text-sm font-medium transition-colors rounded-lg ${
                   location.pathname === path
-                    ? 'text-primary text-glow-green bg-muted'
+                    ? 'text-primary bg-primary/10'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 }`}
               >
@@ -45,10 +49,33 @@ const Header = () => {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
-            <Bell className="h-4 w-4" />
-          </Button>
-          <WalletMultiButton className="!bg-primary !text-primary-foreground hover:!bg-primary/90 !font-mono !text-xs !font-bold !rounded-md !h-9 !px-4" />
+          <WalletMultiButton className="!bg-primary !text-primary-foreground hover:!bg-primary/90 !text-xs !font-semibold !rounded-lg !h-9 !px-4" />
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden text-muted-foreground">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="bg-background border-border">
+              <SheetTitle className="text-foreground font-display">Navigation</SheetTitle>
+              <nav className="flex flex-col gap-2 mt-6">
+                {navLinks.map(({ path, label }) => (
+                  <Link
+                    key={path}
+                    to={path}
+                    onClick={() => setOpen(false)}
+                    className={`px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                      location.pathname === path
+                        ? 'text-primary bg-primary/10'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
