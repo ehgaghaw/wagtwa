@@ -4,6 +4,7 @@ import { Rocket, Flame, Clock, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import { mockCoins } from '@/data/mockData';
+import rotLogoAnim from '@/assets/rot-logo-anim.mp4';
 
 const Index = () => {
   const trending = [...mockCoins].sort((a, b) => b.volume24h - a.volume24h).slice(0, 4);
@@ -12,7 +13,7 @@ const Index = () => {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border bg-background">
+      <section className="relative overflow-hidden border-b border-border" style={{ backgroundColor: '#000000' }}>
         <div className="relative container py-24 md:py-32 text-center">
           <motion.div
             className="relative inline-block mb-6"
@@ -20,9 +21,15 @@ const Index = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            <span className="font-display text-7xl md:text-9xl lg:text-[10rem] font-black text-white leading-none select-none rot-drip">
-              ROT
-            </span>
+            <video
+              src={rotLogoAnim}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-40 md:h-56 lg:h-64 w-auto mx-auto"
+              style={{ mixBlendMode: 'lighten' }}
+            />
           </motion.div>
           <motion.p
             className="text-lg md:text-xl text-muted-foreground font-mono mb-8 max-w-2xl mx-auto"
