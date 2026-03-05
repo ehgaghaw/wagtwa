@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Connection, Keypair, VersionedTransaction } from "npm:@solana/web3.js@1.98.4";
+import bs58 from "npm:bs58@6.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,61 +11,51 @@ const corsHeaders = {
 
 const TRADE_API = "https://pumpportal.fun/api/trade-local";
 const IPFS_API = "https://pump.fun/api/ipfs";
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+const RPC_URL = Deno.env.get("SOLANA_RPC_URL") || "https://rpc.ankr.com/solana";
 
-function base58Decode(str: string): Uint8Array {
-  const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  const bytes: number[] = [];
-  for (const char of str) {
-    let carry = ALPHABET.indexOf(char);
-    if (carry < 0) throw new Error("Invalid base58 character");
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry & 0xff;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
-  }
-  for (const char of str) {
-    if (char !== "1") break;
-    bytes.push(0);
-  }
-  return new Uint8Array(bytes.reverse());
+function errorResponse(message: string, status = 500) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
-async function verifyPayment(
-  paymentSignature: string,
-  expectedRecipient: string,
-  expectedAmountLamports: number
-): Promise<boolean> {
-  const res = await fetch(SOLANA_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "getTransaction",
-      params: [paymentSignature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }],
-    }),
-  });
+function parseProxySecretKey(secret: string): Uint8Array {
+  const value = secret.trim();
 
-  const data = await res.json();
-  if (!data.result || data.result.meta?.err) {
-    return false;
+  if (value.startsWith("[") && value.endsWith("]")) {
+    const arr = JSON.parse(value);
+    return Uint8Array.from(arr);
   }
 
-  // Check that the transaction includes a transfer to our proxy wallet
-  const instructions = data.result.transaction?.message?.instructions || [];
-  for (const ix of instructions) {
-    if (ix.parsed?.type === "transfer" && ix.program === "system") {
-      const info = ix.parsed.info;
-      if (
-        info.destination === expectedRecipient &&
-        Number(info.lamports) >= expectedAmountLamports
-      ) {
+  if (value.includes(",")) {
+    return Uint8Array.from(value.split(",").map((n) => Number(n.trim())));
+  }
+
+  return bs58.decode(value);
+}
+
+async function verifyPaymentReceived(
+  connection: Connection,
+  paymentSignature: string,
+  proxyWalletAddress: string,
+  minLamports: number,
+): Promise<boolean> {
+  const tx = await connection.getParsedTransaction(paymentSignature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0,
+  });
+
+  if (!tx || tx.meta?.err) return false;
+
+  for (const instruction of tx.transaction.message.instructions as any[]) {
+    if (
+      instruction?.program === "system" &&
+      instruction?.parsed?.type === "transfer"
+    ) {
+      const destination = instruction.parsed?.info?.destination;
+      const lamports = Number(instruction.parsed?.info?.lamports || 0);
+      if (destination === proxyWalletAddress && lamports >= minLamports) {
         return true;
       }
     }
@@ -77,20 +69,21 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const proxyPrivateKey = Deno.env.get("PROXY_WALLET_PRIVATE_KEY");
-
-  if (!proxyPrivateKey) {
-    return new Response(
-      JSON.stringify({ error: "Proxy wallet not configured" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  let launchId: string | null = null;
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const proxyPrivateKey = Deno.env.get("PROXY_WALLET_PRIVATE_KEY");
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      return errorResponse("Backend configuration missing", 500);
+    }
+
+    if (!proxyPrivateKey) {
+      return errorResponse("Missing PROXY_WALLET_PRIVATE_KEY secret", 500);
+    }
+
     const body = await req.json();
     const {
       userWallet,
@@ -100,135 +93,98 @@ serve(async (req) => {
       tokenDescription,
       tokenImageUrl,
       solAmount,
+      devBuyAmount,
       universe,
       twitter,
       telegram,
       website,
     } = body;
 
-    if (!userWallet || !paymentSignature || !tokenName || !tokenSymbol) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!userWallet || !paymentSignature || !tokenName || !tokenSymbol || !tokenImageUrl) {
+      return errorResponse("Missing required fields", 400);
     }
 
-    // Decode the proxy wallet keypair from base58
-    const proxyKeypairBytes = base58Decode(proxyPrivateKey);
-    // The public key is the last 32 bytes of the 64-byte secret key
-    const proxyPublicKeyBytes = proxyKeypairBytes.slice(32, 64);
+    const totalSolAmount = Number(solAmount ?? 0.02);
+    const initialBuySol = Math.max(0, Number(devBuyAmount ?? 0));
 
-    // Convert public key to base58
-    const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    function base58Encode(bytes: Uint8Array): string {
-      const digits = [0];
-      for (const byte of bytes) {
-        let carry = byte;
-        for (let j = 0; j < digits.length; j++) {
-          carry += digits[j] << 8;
-          digits[j] = carry % 58;
-          carry = (carry / 58) | 0;
-        }
-        while (carry > 0) {
-          digits.push(carry % 58);
-          carry = (carry / 58) | 0;
-        }
-      }
-      let result = "";
-      for (const byte of bytes) {
-        if (byte !== 0) break;
-        result += "1";
-      }
-      for (let i = digits.length - 1; i >= 0; i--) {
-        result += ALPHABET[digits[i]];
-      }
-      return result;
-    }
+    const proxyKeypair = Keypair.fromSecretKey(parseProxySecretKey(proxyPrivateKey));
+    const proxyWalletAddress = proxyKeypair.publicKey.toBase58();
+    const connection = new Connection(RPC_URL, "confirmed");
 
-    const proxyWalletAddress = base58Encode(proxyPublicKeyBytes);
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // Insert pending record
-    const { data: launchRecord, error: insertError } = await supabase
+    const { data: row, error: insertError } = await supabase
       .from("token_launches")
       .insert({
         user_wallet: userWallet,
         token_name: tokenName,
         token_symbol: tokenSymbol,
         token_description: tokenDescription || "",
-        token_image_url: tokenImageUrl || "",
+        token_image_url: tokenImageUrl,
         payment_signature: paymentSignature,
-        sol_amount: solAmount || 0.02,
+        sol_amount: totalSolAmount,
         status: "pending",
         universe: universe || "Italian Brainrot",
         twitter: twitter || null,
         telegram: telegram || null,
         website: website || null,
       })
-      .select()
+      .select("id")
       .single();
 
-    if (insertError) {
-      return new Response(
-        JSON.stringify({ error: "Failed to create launch record: " + insertError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (insertError || !row) {
+      return errorResponse(`Failed to create launch record: ${insertError?.message || "Unknown error"}`, 500);
     }
 
-    const launchId = launchRecord.id;
+    launchId = row.id;
 
-    // Verify payment on-chain
-    const expectedLamports = Math.floor((solAmount || 0.02) * 1_000_000_000);
-    const paymentValid = await verifyPayment(paymentSignature, proxyWalletAddress, expectedLamports);
+    const expectedLamports = Math.floor(totalSolAmount * 1_000_000_000);
+    const paymentOk = await verifyPaymentReceived(
+      connection,
+      paymentSignature,
+      proxyWalletAddress,
+      expectedLamports,
+    );
 
-    if (!paymentValid) {
+    if (!paymentOk) {
       await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
-      return new Response(
-        JSON.stringify({ error: "Payment verification failed. Transaction not found or insufficient amount." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse("Payment not verified on-chain", 400);
     }
 
-    // Upload metadata to IPFS if we have an image URL
-    let metadataUri = "";
-    if (tokenImageUrl) {
-      try {
-        // Fetch the image and upload to IPFS
-        const imageRes = await fetch(tokenImageUrl);
-        const imageBlob = await imageRes.blob();
-
-        const formData = new FormData();
-        formData.append("file", imageBlob, "token-image.png");
-        formData.append("name", tokenName);
-        formData.append("symbol", tokenSymbol);
-        formData.append("description", tokenDescription || "");
-        formData.append("showName", "true");
-        if (twitter) formData.append("twitter", twitter);
-        if (telegram) formData.append("telegram", telegram);
-        if (website) formData.append("website", website);
-
-        const ipfsRes = await fetch(IPFS_API, { method: "POST", body: formData });
-        if (!ipfsRes.ok) {
-          const errText = await ipfsRes.text();
-          throw new Error(`IPFS upload failed: ${errText}`);
-        }
-        const ipfsData = await ipfsRes.json();
-        metadataUri = ipfsData.metadataUri;
-      } catch (ipfsErr) {
-        await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
-        return new Response(
-          JSON.stringify({ error: "IPFS upload failed: " + (ipfsErr as Error).message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    const imageRes = await fetch(tokenImageUrl);
+    if (!imageRes.ok) {
+      await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
+      return errorResponse("Could not fetch token image for IPFS upload", 400);
     }
 
-    // Generate a mint keypair (random 32 bytes for public key)
-    const mintKeyBytes = new Uint8Array(32);
-    crypto.getRandomValues(mintKeyBytes);
-    const mintPublicKey = base58Encode(mintKeyBytes);
+    const imageBlob = await imageRes.blob();
+    const formData = new FormData();
+    formData.append("file", imageBlob, "token-image.png");
+    formData.append("name", tokenName);
+    formData.append("symbol", tokenSymbol);
+    formData.append("description", tokenDescription || "");
+    formData.append("showName", "true");
+    if (twitter) formData.append("twitter", twitter);
+    if (telegram) formData.append("telegram", telegram);
+    if (website) formData.append("website", website);
 
-    // Create token via PumpPortal
-    const tradeBody = {
+    const ipfsRes = await fetch(IPFS_API, { method: "POST", body: formData });
+    if (!ipfsRes.ok) {
+      const ipfsErr = await ipfsRes.text();
+      await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
+      return errorResponse(`IPFS upload failed: ${ipfsErr}`, 500);
+    }
+
+    const ipfsData = await ipfsRes.json();
+    const metadataUri = ipfsData?.metadataUri;
+    if (!metadataUri) {
+      await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
+      return errorResponse("IPFS metadata URI missing", 500);
+    }
+
+    const mintKeypair = Keypair.generate();
+
+    const tradePayload = {
       publicKey: proxyWalletAddress,
       action: "create",
       tokenMetadata: {
@@ -236,9 +192,9 @@ serve(async (req) => {
         symbol: tokenSymbol,
         uri: metadataUri,
       },
-      mint: mintPublicKey,
+      mint: mintKeypair.publicKey.toBase58(),
       denominatedInSol: "true",
-      amount: 0, // No initial buy from proxy
+      amount: initialBuySol,
       slippage: 10,
       priorityFee: 0.0005,
       pool: "pump",
@@ -247,52 +203,32 @@ serve(async (req) => {
     const tradeRes = await fetch(TRADE_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(tradeBody),
+      body: JSON.stringify(tradePayload),
     });
 
     if (tradeRes.status !== 200) {
-      const errText = await tradeRes.text();
+      const tradeErr = await tradeRes.text();
       await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
-      return new Response(
-        JSON.stringify({ error: "PumpPortal create failed: " + errText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return errorResponse(`PumpPortal create failed: ${tradeErr}`, 500);
     }
 
-    // Sign and send the transaction using the proxy wallet
-    // The PumpPortal API returns a serialized transaction that needs signing
     const txBytes = new Uint8Array(await tradeRes.arrayBuffer());
+    const tx = VersionedTransaction.deserialize(txBytes);
+    tx.sign([mintKeypair, proxyKeypair]);
 
-    // We need to sign this transaction with the proxy wallet key
-    // Import ed25519 signing
-    const keyPair = await crypto.subtle.importKey(
-      "raw",
-      proxyKeypairBytes.slice(0, 32),
-      { name: "Ed25519" },
-      false,
-      ["sign"]
-    );
+    const signature = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false,
+      maxRetries: 3,
+    });
 
-    // For VersionedTransaction, the signature goes at offset after the signature count
-    // This is complex - let's use the RPC sendTransaction with the proxy signing
-    // Actually, PumpPortal returns a VersionedTransaction. We need to sign it properly.
-    
-    // For now, let's send the raw transaction bytes back and note this needs
-    // proper Ed25519 signing which requires a Solana-compatible library
-    
-    // Since we can't easily do Ed25519 signing in Deno without a library,
-    // let's use a different approach: send the transaction parameters and
-    // have PumpPortal handle it if they support server-side signing
-    
-    // Alternative: Use PumpPortal's API key-based endpoint for server-side creation
-    // For now, mark as completed with the mint address
-    
+    await connection.confirmTransaction(signature, "confirmed");
+
     await supabase
       .from("token_launches")
       .update({
         status: "completed",
-        mint_address: mintPublicKey,
-        transaction_signature: paymentSignature,
+        mint_address: mintKeypair.publicKey.toBase58(),
+        transaction_signature: signature,
       })
       .eq("id", launchId);
 
@@ -300,15 +236,26 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         launchId,
-        mintAddress: mintPublicKey,
-        status: "completed",
+        mintAddress: mintKeypair.publicKey.toBase58(),
+        transactionSignature: signature,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    try {
+      if (launchId) {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await supabase.from("token_launches").update({ status: "failed" }).eq("id", launchId);
+      }
+    } catch {
+      // ignore secondary error
+    }
+
+    return errorResponse((err as Error)?.message || "Launch failed", 500);
   }
 });
