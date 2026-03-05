@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Rocket, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import { BrainrotCoin } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import rotLogoAnim from '@/assets/rot-logo-anim.webm';
 
 const Index = () => {
@@ -70,16 +71,24 @@ const Index = () => {
         <p className="text-sm md:text-base text-muted-foreground mb-8 max-w-md mx-auto">
           Launch Your Brainrot. Let it Rot.
         </p>
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-4 justify-center items-center">
           <Link to="/launch">
-            <Button size="lg" className="bg-primary text-primary-foreground font-semibold text-sm px-6 h-10 rounded-md border-0 hover:bg-primary/90">
-              <Rocket className="mr-2 h-4 w-4" /> Launch a Coin
-            </Button>
+            <motion.span
+              className="text-sm font-bold text-primary cursor-pointer hover:text-primary/80 transition-colors"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              Launch a Coin ✦
+            </motion.span>
           </Link>
           <Link to="/explore">
-            <Button size="lg" variant="outline" className="border-border text-foreground hover:bg-muted font-semibold text-sm px-6 h-10 rounded-md">
-              Explore <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <motion.span
+              className="text-sm font-bold text-muted-foreground cursor-pointer hover:text-foreground transition-colors flex items-center gap-1"
+              animate={{ x: [0, 4, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              Explore <ArrowRight className="h-3.5 w-3.5" />
+            </motion.span>
           </Link>
         </div>
       </section>
@@ -96,10 +105,8 @@ const Index = () => {
           {coins.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-sm">No coins launched yet. Be the first!</p>
-              <Link to="/launch">
-                <Button variant="outline" className="mt-4">
-                  <Rocket className="mr-2 h-4 w-4" /> Launch a Coin
-                </Button>
+              <Link to="/launch" className="text-primary hover:text-primary/80 text-sm font-semibold mt-4 inline-block">
+                Launch a Coin →
               </Link>
             </div>
           ) : (
