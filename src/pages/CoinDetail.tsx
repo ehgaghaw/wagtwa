@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Copy, Check } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Copy, Check, Heart, Eye, Share2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,12 +38,14 @@ const formatNum = (n: number) => {
   return `$${n.toFixed(2)}`;
 };
 
-const formatPrice = (n: number) => {
-  if (n === 0) return '$0';
-  if (n < 0.000001) return `$${n.toExponential(2)}`;
-  if (n < 0.01) return `$${n.toFixed(8)}`;
-  if (n < 1) return `$${n.toFixed(6)}`;
-  return `$${n.toFixed(2)}`;
+const timeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 };
 
 const CoinDetail = () => {
@@ -59,7 +61,7 @@ const CoinDetail = () => {
   useEffect(() => {
     const fetchCoin = async () => {
       setDbLoading(true);
-      let query = supabase.from('launched_coins' as any).select('*');
+      let query = supabase.from('launched_coins').select('*');
       if (mintAddress) {
         query = query.eq('mint_address', mintAddress);
       } else if (id) {
@@ -114,27 +116,15 @@ const CoinDetail = () => {
     return (
       <div className="container py-8 max-w-3xl">
         <Skeleton className="h-4 w-16 mb-8" />
-        <div className="flex items-start gap-5 mb-8">
-          <Skeleton className="w-24 h-24 rounded-xl" />
-          <div className="space-y-2 flex-1">
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-full" />
-          </div>
-          <div className="text-right space-y-2">
-            <Skeleton className="h-7 w-28 ml-auto" />
-            <Skeleton className="h-4 w-16 ml-auto" />
+        <div className="flex items-start gap-4 mb-6">
+          <Skeleton className="w-[140px] h-[140px] rounded-lg" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-7 w-full max-w-md" />
+            <Skeleton className="h-4 w-48" />
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-card border border-border rounded-lg p-4">
-              <Skeleton className="h-3 w-12 mb-2" />
-              <Skeleton className="h-6 w-16" />
-            </div>
-          ))}
-        </div>
-        <Skeleton className="h-[400px] w-full rounded-xl" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-3/4" />
       </div>
     );
   }
@@ -143,130 +133,146 @@ const CoinDetail = () => {
     return (
       <div className="container py-20 text-center text-muted-foreground">
         <p className="text-base mb-2">Token not found</p>
-        <Link to="/explore" className="text-primary text-sm hover:underline">← Back to Explore</Link>
+        <Link to="/explore" className="text-primary text-sm hover:underline">Back to Explore</Link>
       </div>
     );
   }
 
   const tokenAddr = mintAddress || dbCoin.mint_address;
-  const price = dexData ? parseFloat(dexData.priceUsd || '0') : null;
   const mc = dexData?.marketCap || dexData?.fdv || null;
   const vol = dexData?.volume?.h24 || null;
-  const liq = dexData?.liquidity?.usd || null;
   const change24h = dexData?.priceChange?.h24 ?? null;
-  const change1h = dexData?.priceChange?.h1 ?? null;
-  const change6h = dexData?.priceChange?.h6 ?? null;
-  const buys24 = dexData?.txns?.h24?.buys ?? null;
-  const sells24 = dexData?.txns?.h24?.sells ?? null;
+  const buys24 = dexData?.txns?.h24?.buys ?? 0;
+  const sells24 = dexData?.txns?.h24?.sells ?? 0;
+  const totalTxns = buys24 + sells24;
 
   return (
     <div className="container py-8 max-w-3xl">
+      {/* Back link */}
       <Link to="/explore" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mb-6 transition-colors">
         <ArrowLeft className="h-3 w-3" /> Back
       </Link>
 
-      {/* Header — Frenzy style: name + ticker top left, price top right */}
-      <div className="flex items-start justify-between mb-2">
+      {/* Top row: name + ticker left, change + mcap right — Frenzy style */}
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-foreground text-lg">{dbCoin.name}</span>
+          <span className="font-bold text-foreground text-base">{dbCoin.name}</span>
           <span className="text-sm text-muted-foreground">{dbCoin.ticker}</span>
         </div>
-        {!dexLoading && price !== null && price > 0 && (
-          <div className="text-right">
+        {!dexLoading && mc !== null && mc > 0 && (
+          <div className="flex items-center gap-2">
             {change24h !== null && (
-              <span className={`text-xs font-bold font-mono mr-2 ${change24h >= 0 ? 'text-primary' : 'text-destructive'}`}>
+              <span className={`text-xs font-bold font-mono ${change24h >= 0 ? 'text-primary' : 'text-destructive'}`}>
                 {change24h >= 0 ? '+' : ''}{change24h.toFixed(2)}%
               </span>
             )}
-            <span className="text-lg font-bold text-foreground font-mono">{formatNum(mc || 0)}</span>
+            <span className="text-base font-bold text-foreground font-mono">{formatNum(mc)}</span>
           </div>
         )}
       </div>
 
-      {/* Image + description row */}
-      <div className="flex items-start gap-4 mb-6">
+      {/* Image + Headline row — matching Frenzy detail: square image with colored border, headline to the right */}
+      <div className="flex items-start gap-5 mb-4">
         {dbCoin.image_url ? (
-          <img src={dbCoin.image_url} alt={dbCoin.name} className="w-24 h-24 rounded-xl object-cover border-2 border-primary/30" />
+          <img
+            src={dbCoin.image_url}
+            alt={dbCoin.name}
+            className="w-[140px] h-[140px] rounded-lg object-cover border-[3px] border-primary/60 shrink-0"
+          />
         ) : (
-          <div className="w-24 h-24 rounded-xl bg-muted flex items-center justify-center text-3xl font-bold text-muted-foreground border border-border">
+          <div className="w-[140px] h-[140px] rounded-lg bg-muted flex items-center justify-center text-4xl font-bold text-muted-foreground border-[3px] border-primary/60 shrink-0">
             {dbCoin.ticker.charAt(0)}
           </div>
         )}
-        <div className="flex-1 min-w-0 pt-1">
-          <h2 className="text-lg font-bold text-foreground leading-snug mb-2">
+        <div className="flex-1 pt-1">
+          <h1 className="text-xl font-bold text-foreground leading-snug mb-3">
             {dbCoin.description || dbCoin.name}
-          </h2>
-          <div className="flex items-center gap-4 flex-wrap">
+          </h1>
+          {/* Stats row — hearts, views, shares, time — like Frenzy */}
+          <div className="flex items-center gap-4 text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs">
+              <Heart className="h-3.5 w-3.5" /> {totalTxns > 0 ? totalTxns.toLocaleString() : '—'}
+            </span>
+            <span className="flex items-center gap-1 text-xs">
+              <Eye className="h-3.5 w-3.5" /> {vol ? formatNum(vol) : '—'}
+            </span>
+            <span className="flex items-center gap-1 text-xs">
+              <Share2 className="h-3.5 w-3.5" /> {buys24 > 0 ? buys24.toLocaleString() : '—'}
+            </span>
             {tokenAddr && (
               <button onClick={handleCopy} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono">
                 {tokenAddr.slice(0, 4)}..pump
                 {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
               </button>
             )}
-            <span className="text-[11px] text-muted-foreground">{dbCoin.universe}</span>
-            <span className="text-[11px] text-muted-foreground">{new Date(dbCoin.created_at).toLocaleDateString()}</span>
+            <span className="text-xs">{timeAgo(dbCoin.created_at)}</span>
           </div>
         </div>
       </div>
 
-      {/* Heatcheck-style stats card */}
-      <div className="bg-card border border-border rounded-xl p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm font-semibold text-foreground">Heatcheck</span>
-        </div>
-        <div className="grid grid-cols-4 gap-4">
-          {[
-            { label: 'Market Cap', value: mc, fmt: formatNum },
-            { label: 'Volume', value: vol, fmt: formatNum },
-            { label: 'Liquidity', value: liq, fmt: formatNum },
-            { label: 'Txns (24h)', value: buys24 !== null && sells24 !== null ? buys24 + sells24 : null, fmt: (n: number) => n.toLocaleString() },
-          ].map(stat => (
-            <div key={stat.label}>
-              <p className="text-[10px] text-muted-foreground mb-1">{stat.label}</p>
-              {dexLoading ? (
-                <Skeleton className="h-6 w-16" />
-              ) : stat.value !== null ? (
-                <p className="text-base font-bold text-foreground font-mono">{stat.fmt(stat.value)}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">—</p>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* Summary section — like Frenzy */}
+      <div className="mb-8">
+        <h2 className="text-sm font-bold text-foreground mb-3">Summary</h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          {dbCoin.description || `${dbCoin.name} ($${dbCoin.ticker}) launched on the Brainrot Launchpad via Pump.fun's bonding curve on Solana.`}
+        </p>
+      </div>
 
-        {/* Price changes */}
-        {!dexLoading && (change1h !== null || change6h !== null || change24h !== null) && (
-          <div className="flex gap-3 mt-4 pt-3 border-t border-border">
+      {/* Stats card — Heatcheck */}
+      {!dexLoading && mc !== null && mc > 0 && (
+        <div className="bg-card border border-border rounded-lg p-5 mb-6">
+          <div className="grid grid-cols-4 gap-4">
             {[
-              { label: '1h', value: change1h },
-              { label: '6h', value: change6h },
-              { label: '24h', value: change24h },
-            ].filter(c => c.value !== null).map(c => (
-              <span key={c.label} className={`text-xs font-bold font-mono ${c.value! >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                {c.value! >= 0 ? '↑' : '↓'}{Math.abs(c.value!).toFixed(2)}% <span className="text-muted-foreground font-normal">{c.label}</span>
-              </span>
+              { label: 'Market Cap', value: mc, fmt: formatNum },
+              { label: 'Volume 24h', value: vol, fmt: formatNum },
+              { label: 'Liquidity', value: dexData?.liquidity?.usd || null, fmt: formatNum },
+              { label: 'Txns 24h', value: totalTxns > 0 ? totalTxns : null, fmt: (n: number) => n.toLocaleString() },
+            ].map(stat => (
+              <div key={stat.label}>
+                <p className="text-[10px] text-muted-foreground mb-1">{stat.label}</p>
+                {stat.value !== null ? (
+                  <p className="text-base font-bold text-foreground font-mono">{stat.fmt(stat.value)}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
             ))}
           </div>
-        )}
 
-        {/* Buy/Sell bar */}
-        {!dexLoading && buys24 !== null && sells24 !== null && (buys24 + sells24) > 0 && (
-          <div className="mt-3 pt-3 border-t border-border">
-            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-              <span>{buys24} buys</span>
-              <span>{sells24} sells</span>
+          {/* Price changes row */}
+          {(dexData?.priceChange?.h1 !== undefined || dexData?.priceChange?.h6 !== undefined || change24h !== null) && (
+            <div className="flex gap-3 mt-4 pt-3 border-t border-border">
+              {[
+                { label: '1h', value: dexData?.priceChange?.h1 },
+                { label: '6h', value: dexData?.priceChange?.h6 },
+                { label: '24h', value: change24h },
+              ].filter(c => c.value !== undefined && c.value !== null).map(c => (
+                <span key={c.label} className={`text-xs font-bold font-mono ${c.value! >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                  {c.value! >= 0 ? '+' : ''}{c.value!.toFixed(2)}% <span className="text-muted-foreground font-normal">{c.label}</span>
+                </span>
+              ))}
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden flex bg-muted">
-              <div className="h-full bg-primary" style={{ width: `${(buys24 / (buys24 + sells24)) * 100}%` }} />
-              <div className="h-full bg-destructive flex-1" />
+          )}
+
+          {/* Buy/Sell bar */}
+          {buys24 > 0 && sells24 > 0 && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                <span>{buys24} buys</span>
+                <span>{sells24} sells</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden flex bg-muted">
+                <div className="h-full bg-primary" style={{ width: `${(buys24 / totalTxns) * 100}%` }} />
+                <div className="h-full bg-destructive flex-1" />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Chart */}
       {tokenAddr && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden mb-6">
+        <div className="bg-card border border-border rounded-lg overflow-hidden mb-6">
           <div className="flex items-center justify-between px-4 pt-3">
             <p className="text-xs font-semibold text-foreground">Chart</p>
             <a
@@ -287,41 +293,59 @@ const CoinDetail = () => {
         </div>
       )}
 
-      {/* Links */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {tokenAddr && (
-          <>
-            <a href={`https://pump.fun/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
-              <ExternalLink className="h-3 w-3" /> Pump.fun
-            </a>
-            <a href={`https://solscan.io/token/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
-              <ExternalLink className="h-3 w-3" /> Solscan
-            </a>
-          </>
-        )}
-        {dbCoin.twitter && (
-          <a href={dbCoin.twitter} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
-            <ExternalLink className="h-3 w-3" /> Twitter
-          </a>
-        )}
-        {dbCoin.telegram && (
-          <a href={dbCoin.telegram} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
-            <ExternalLink className="h-3 w-3" /> Telegram
-          </a>
-        )}
-        {dbCoin.website && (
-          <a href={dbCoin.website} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
-            <ExternalLink className="h-3 w-3" /> Website
-          </a>
-        )}
+      {/* Read more — links section like Frenzy */}
+      <div className="mb-6">
+        <h2 className="text-sm font-bold text-foreground mb-3">Read more</h2>
+        <ul className="space-y-2">
+          {tokenAddr && (
+            <>
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-muted-foreground shrink-0" />
+                <a href={`https://pump.fun/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-1">
+                  View on Pump.fun <ExternalLink className="h-3 w-3" />
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-muted-foreground shrink-0" />
+                <a href={`https://solscan.io/token/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center gap-1">
+                  View on Solscan <ExternalLink className="h-3 w-3" />
+                </a>
+              </li>
+            </>
+          )}
+          {dbCoin.twitter && (
+            <li className="flex items-center gap-2">
+              <span className="w-1 h-1 rounded-full bg-muted-foreground shrink-0" />
+              <a href={dbCoin.twitter} target="_blank" rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1">
+                Twitter / X <ExternalLink className="h-3 w-3" />
+              </a>
+            </li>
+          )}
+          {dbCoin.telegram && (
+            <li className="flex items-center gap-2">
+              <span className="w-1 h-1 rounded-full bg-muted-foreground shrink-0" />
+              <a href={dbCoin.telegram} target="_blank" rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1">
+                Telegram <ExternalLink className="h-3 w-3" />
+              </a>
+            </li>
+          )}
+          {dbCoin.website && (
+            <li className="flex items-center gap-2">
+              <span className="w-1 h-1 rounded-full bg-muted-foreground shrink-0" />
+              <a href={dbCoin.website} target="_blank" rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1">
+                Website <ExternalLink className="h-3 w-3" />
+              </a>
+            </li>
+          )}
+        </ul>
       </div>
 
-      {/* Token meta */}
+      {/* Token Info */}
       <div className="bg-card border border-border rounded-lg p-4">
         <p className="text-xs font-semibold text-foreground mb-3">Token Info</p>
         <div className="space-y-2 text-xs">
