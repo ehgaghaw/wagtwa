@@ -74,6 +74,7 @@ export type Database = {
           lore: string | null
           name: string
           tags: string[] | null
+          universe: string
           upvotes: number
           wallet_address: string
         }
@@ -85,6 +86,7 @@ export type Database = {
           lore?: string | null
           name: string
           tags?: string[] | null
+          universe?: string
           upvotes?: number
           wallet_address: string
         }
@@ -96,6 +98,7 @@ export type Database = {
           lore?: string | null
           name?: string
           tags?: string[] | null
+          universe?: string
           upvotes?: number
           wallet_address?: string
         }

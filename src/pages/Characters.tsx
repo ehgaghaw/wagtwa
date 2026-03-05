@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ThumbsUp, ThumbsDown, Rocket, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { brainrotCharacters, type BrainrotUniverse, type BrainrotCharacter } from '@/data/mockData';
+import { BRAINROT_UNIVERSES, type BrainrotUniverse, type BrainrotCharacter } from '@/data/mockData';
 import { Link } from 'react-router-dom';
 import UniverseFilter from '@/components/UniverseFilter';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,11 +28,11 @@ const Characters = () => {
   const [universe, setUniverse] = useState<BrainrotUniverse>('All');
   const [voteCounts, setVoteCounts] = useState<VoteCounts>({});
   const [userVotes, setUserVotes] = useState<UserVotes>({});
-  const [dbCharacters, setDbCharacters] = useState<BrainrotCharacter[]>([]);
+  const [characters, setCharacters] = useState<BrainrotCharacter[]>([]);
   const wallet = useWallet();
   const walletAddress = wallet.publicKey?.toBase58() || null;
 
-  const fetchDbCharacters = useCallback(async () => {
+  const fetchCharacters = useCallback(async () => {
     const { data } = await supabase.from('characters').select('*');
     if (!data) return;
     const mapped: BrainrotCharacter[] = data.map((c) => ({
@@ -45,9 +45,9 @@ const Characters = () => {
       tags: c.tags || [],
       votes: c.upvotes - c.downvotes,
       hasCoin: false,
-      universe: 'Community' as BrainrotUniverse,
+      universe: (c as any).universe as BrainrotUniverse || 'Italian Brainrot',
     }));
-    setDbCharacters(mapped);
+    setCharacters(mapped);
   }, []);
 
   const fetchVotes = useCallback(async () => {
@@ -70,7 +70,7 @@ const Characters = () => {
 
   useEffect(() => {
     fetchVotes();
-    fetchDbCharacters();
+    fetchCharacters();
     const channel = supabase
       .channel('character-votes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'character_votes' }, () => {
@@ -80,11 +80,11 @@ const Characters = () => {
     const charChannel = supabase
       .channel('characters-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'characters' }, () => {
-        fetchDbCharacters();
+        fetchCharacters();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); supabase.removeChannel(charChannel); };
-  }, [fetchVotes, fetchDbCharacters]);
+  }, [fetchVotes, fetchCharacters]);
 
   const handleVote = async (characterId: string, voteType: 'up' | 'down') => {
     if (!walletAddress) {
@@ -94,19 +94,15 @@ const Characters = () => {
 
     const existing = userVotes[characterId];
     if (existing === voteType) {
-      // Remove vote
       await supabase.from('character_votes').delete().eq('character_id', characterId).eq('wallet_address', walletAddress);
     } else if (existing) {
-      // Change vote
       await supabase.from('character_votes').update({ vote_type: voteType }).eq('character_id', characterId).eq('wallet_address', walletAddress);
     } else {
-      // New vote
       await supabase.from('character_votes').insert({ character_id: characterId, wallet_address: walletAddress, vote_type: voteType });
     }
   };
 
-  const allCharacters = [...brainrotCharacters, ...dbCharacters];
-  const filtered = allCharacters.filter(c => universe === 'All' || c.universe === universe);
+  const filtered = characters.filter(c => universe === 'All' || c.universe === universe);
 
   return (
     <div className="container py-6">
