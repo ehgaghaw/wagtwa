@@ -53,7 +53,9 @@ const Header = () => {
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
             </svg>
           </a>
-          <WalletMultiButton className="!bg-foreground !text-background hover:!bg-foreground/80 !text-xs !font-semibold !rounded !h-7 !px-2.5 !py-0 !min-w-0" />
+          <WalletMultiButton className="!bg-foreground !text-background hover:!bg-foreground/80 !text-xs !font-semibold !rounded !h-7 !px-2.5 !py-0 !min-w-0">
+            {/* The adapter automatically shows the shortened address when connected */}
+          </WalletMultiButton>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden text-muted-foreground h-8 w-8">

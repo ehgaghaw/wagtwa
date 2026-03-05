@@ -66,7 +66,12 @@ export const useWalletPortfolio = (): WalletPortfolio => {
       setTokens(holdings);
     } catch (err: any) {
       console.error('Failed to fetch portfolio:', err);
-      setError(err.message || 'Failed to fetch wallet data');
+      // Don't show RPC access errors to users - just silently fail
+      if (err.message?.includes('403') || err.message?.includes('Forbidden')) {
+        // RPC endpoint access issue - fail silently
+      } else {
+        setError(err.message || 'Failed to fetch wallet data');
+      }
     } finally {
       setLoading(false);
     }
