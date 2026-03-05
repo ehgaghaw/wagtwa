@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import { mockCoins } from '@/data/mockData';
 import heroBg from '@/assets/hero-bg.jpg';
+import rotLogo from '@/assets/rot-logo.png';
 
 const Index = () => {
   const trending = [...mockCoins].sort((a, b) => b.volume24h - a.volume24h).slice(0, 4);
@@ -23,16 +24,53 @@ const Index = () => {
       >
         <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
         <div className="relative container py-24 md:py-32 text-center">
-          <motion.h1
-            className="font-display text-6xl md:text-8xl font-black mb-4 text-glow-green animate-flicker"
-            initial={{ opacity: 0, y: 20 }}
+          <motion.div
+            className="relative inline-block mb-6"
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.7 }}
           >
-            <span className="text-primary">R</span>
-            <span className="text-destructive text-glow-red">O</span>
-            <span className="text-secondary text-glow-purple">T</span>
-          </motion.h1>
+            <motion.img
+              src={rotLogo}
+              alt="ROT"
+              className="h-40 md:h-56 lg:h-64 w-auto mx-auto drop-shadow-[0_0_40px_hsl(120,100%,50%,0.3)]"
+              animate={{
+                filter: [
+                  'drop-shadow(0 0 20px hsl(120,100%,50%,0.3))',
+                  'drop-shadow(0 0 40px hsl(120,100%,50%,0.5))',
+                  'drop-shadow(0 0 20px hsl(120,100%,50%,0.3))',
+                ],
+                y: [0, 3, 0],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+            />
+            {/* Melting drip elements */}
+            {[0, 1, 2, 3, 4].map((i) => (
+              <motion.div
+                key={i}
+                className="absolute bottom-0 rounded-full bg-gradient-to-b from-foreground/20 to-transparent"
+                style={{
+                  left: `${15 + i * 18}%`,
+                  width: `${4 + (i % 3) * 2}px`,
+                }}
+                animate={{
+                  height: ['0px', `${16 + (i % 3) * 12}px`, '0px'],
+                  opacity: [0, 0.6, 0],
+                  y: [0, 12 + i * 4, 24 + i * 4],
+                }}
+                transition={{
+                  duration: 2.5 + i * 0.4,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                  delay: i * 0.6,
+                }}
+              />
+            ))}
+          </motion.div>
           <motion.p
             className="text-lg md:text-xl text-muted-foreground font-mono mb-8 max-w-2xl mx-auto"
             initial={{ opacity: 0 }}
