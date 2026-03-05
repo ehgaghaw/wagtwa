@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SolanaProvider from "./providers/SolanaProvider";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-
+import TickerBar from "./components/TickerBar";
 import Index from "./pages/Index";
 import Explore from "./pages/Explore";
 import CoinDetail from "./pages/CoinDetail";
@@ -28,7 +28,7 @@ const App = () => (
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">
             <Header />
-            
+            <TickerBar />
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<Index />} />

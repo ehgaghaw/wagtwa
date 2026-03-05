@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Flame, Clock, TrendingUp, BarChart3, GraduationCap, Loader2, Rocket } from 'lucide-react';
+import { Search, Flame, Clock, TrendingUp, BarChart3, GraduationCap, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import UniverseFilter from '@/components/UniverseFilter';
 import { type BrainrotUniverse, type BrainrotCoin } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
-import { Link } from 'react-router-dom';
 
 type Filter = 'trending' | 'new' | 'gainers' | 'volume' | 'graduating';
 
@@ -19,7 +17,7 @@ const filters: { key: Filter; label: string; icon: React.ComponentType<{ classNa
 ];
 
 const Explore = () => {
-  const [filter, setFilter] = useState<Filter>('new');
+  const [filter, setFilter] = useState<Filter>('trending');
   const [search, setSearch] = useState('');
   const [universe, setUniverse] = useState<BrainrotUniverse>('All');
   const [launchedCoins, setLaunchedCoins] = useState<BrainrotCoin[]>([]);
@@ -65,7 +63,16 @@ const Explore = () => {
 
   const filtered = launchedCoins
     .filter(c => universe === 'All' || c.universe === universe)
-    .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.ticker.toLowerCase().includes(search.toLowerCase()));
+    .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.ticker.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      switch (filter) {
+        case 'gainers': return b.priceChange24h - a.priceChange24h;
+        case 'volume': return b.volume24h - a.volume24h;
+        case 'graduating': return b.bondingProgress - a.bondingProgress;
+        case 'new': return 0;
+        default: return b.marketCap - a.marketCap;
+      }
+    });
 
   return (
     <div className="container py-6">
@@ -111,21 +118,14 @@ const Explore = () => {
         </div>
       )}
 
-      {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filtered.map(coin => <CoinCard key={coin.id} coin={coin} />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {filtered.map(coin => <CoinCard key={coin.id} coin={coin} />)}
+      </div>
+      {filtered.length === 0 && !loading && (
+        <div className="text-center py-16 text-muted-foreground text-sm">
+          No coins launched yet. Be the first to launch!
         </div>
-      ) : !loading ? (
-        <div className="text-center py-20 space-y-4">
-          <Rocket className="h-10 w-10 mx-auto text-muted-foreground" />
-          <p className="text-muted-foreground text-sm">No brainrot coins yet. Launch the first one.</p>
-          <Link to="/launch">
-            <Button className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90">
-              <Rocket className="h-4 w-4 mr-2" /> Launch a Coin
-            </Button>
-          </Link>
-        </div>
-      ) : null}
+      )}
     </div>
   );
 };
