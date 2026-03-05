@@ -14,6 +14,7 @@ export default {
       fontFamily: {
         mono: ["Space Mono", "monospace"],
         display: ["Orbitron", "sans-serif"],
+        glitch: ["VT323", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
