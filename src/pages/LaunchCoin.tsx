@@ -99,14 +99,14 @@ const LaunchCoin = () => {
                 />
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer max-w-xs mx-auto"
                 >
                   {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="w-24 h-24 mx-auto rounded-xl object-cover mb-2" />
+                    <img src={imagePreview} alt="Preview" className="w-16 h-16 mx-auto rounded-lg object-cover mb-2" />
                   ) : (
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
                   )}
-                  <p className="text-sm text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload your character image'}</p>
+                  <p className="text-xs text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload'}</p>
                 </div>
               </div>
 

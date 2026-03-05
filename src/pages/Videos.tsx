@@ -468,7 +468,7 @@ const Videos = () => {
         ) : videos.length === 0 ? (
           <div className="text-center">
             <p className="font-display text-lg font-bold text-foreground mb-1">ROT</p>
-            <p className="text-sm text-muted-foreground mb-3">sit back and rot 🧠🪱</p>
+            <p className="text-sm text-muted-foreground mb-3">sit back and rot</p>
             <Button size="sm" className="bg-primary text-primary-foreground text-xs" onClick={() => setShowUpload(true)}>
               <Upload className="h-3 w-3 mr-1" /> Be the first to upload
             </Button>
