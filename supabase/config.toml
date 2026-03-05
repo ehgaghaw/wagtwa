@@ -2,3 +2,9 @@ project_id = "lnipzxhykcfutiujdwya"
 
 [functions.generate-character]
 verify_jwt = false
+
+[functions.pump-proxy]
+verify_jwt = false
+
+[functions.launch-token]
+verify_jwt = false
