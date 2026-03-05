@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Zap, Clock, ImagePlus, X } from 'lucide-react';
+import { Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Clock, ImagePlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,16 +8,9 @@ import { toast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const tags = ['cursed', 'wholesome rot', 'sigma', 'NPC', 'cooked'];
-
-const COST_SOL = 0.01;
-const FREE_GENERATIONS = 3;
-// Placeholder treasury — user will provide the real address later
-const TREASURY_WALLET = 'ROTtreasuryWa11etAddressP1aceho1der111111';
 
 const placeholderPrompts = [
   'angry tung tung with sunglasses...',
@@ -34,6 +27,8 @@ const loadingMessages = [
   'Summoning the rot...',
   'Almost cooked...',
 ];
+
+const COOLDOWN_SECONDS = 30;
 
 const CreateCharacter = () => {
   const [name, setName] = useState('');
@@ -54,22 +49,13 @@ const CreateCharacter = () => {
   const detailsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Rate limiting state
-  const [genStatus, setGenStatus] = useState<{
-    generationCount: number;
-    freeRemaining: number;
-    requiresPayment: boolean;
-    cooldownRemaining: number;
-  } | null>(null);
   const [cooldown, setCooldown] = useState(0);
-  const [isPaying, setIsPaying] = useState(false);
 
   const wallet = useWallet();
-  const { connection } = useConnection();
 
   const toggleTag = (t: string) => setSelectedTags(st => st.includes(t) ? st.filter(x => x !== t) : [...st, t]);
 
-  // Fetch generation status when wallet connects
+  // Fetch cooldown status when wallet connects
   const fetchStatus = useCallback(async () => {
     if (!wallet.publicKey) return;
     try {
@@ -77,8 +63,7 @@ const CreateCharacter = () => {
         body: { action: 'check', walletAddress: wallet.publicKey.toBase58() },
       });
       if (error) throw error;
-      setGenStatus(data);
-      if (data.cooldownRemaining > 0) {
+      if (data?.cooldownRemaining > 0) {
         setCooldown(data.cooldownRemaining);
       }
     } catch (err) {
@@ -86,19 +71,14 @@ const CreateCharacter = () => {
     }
   }, [wallet.publicKey]);
 
-  useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   // Cooldown timer
   useEffect(() => {
     if (cooldown <= 0) return;
     const interval = setInterval(() => {
       setCooldown(c => {
-        if (c <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
+        if (c <= 1) { clearInterval(interval); return 0; }
         return c - 1;
       });
     }, 1000);
@@ -107,48 +87,16 @@ const CreateCharacter = () => {
 
   // Cycle placeholder prompts
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPlaceholderIndex(i => (i + 1) % placeholderPrompts.length);
-    }, 3000);
+    const interval = setInterval(() => setPlaceholderIndex(i => (i + 1) % placeholderPrompts.length), 3000);
     return () => clearInterval(interval);
   }, []);
 
   // Cycle loading messages
   useEffect(() => {
     if (!isGenerating) return;
-    const interval = setInterval(() => {
-      setLoadingMsgIndex(i => (i + 1) % loadingMessages.length);
-    }, 2000);
+    const interval = setInterval(() => setLoadingMsgIndex(i => (i + 1) % loadingMessages.length), 2000);
     return () => clearInterval(interval);
   }, [isGenerating]);
-
-  const handlePayment = async (): Promise<boolean> => {
-    if (!wallet.publicKey || !wallet.signTransaction) return false;
-    setIsPaying(true);
-    try {
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: new PublicKey(TREASURY_WALLET),
-          lamports: Math.floor(COST_SOL * LAMPORTS_PER_SOL),
-        })
-      );
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = wallet.publicKey;
-
-      const signed = await wallet.signTransaction(transaction);
-      const sig = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(sig, 'confirmed');
-      toast({ title: 'Payment confirmed!', description: `${COST_SOL} SOL sent` });
-      return true;
-    } catch (err: any) {
-      toast({ title: 'Payment failed', description: err.message, variant: 'destructive' });
-      return false;
-    } finally {
-      setIsPaying(false);
-    }
-  };
 
   const handleGenerate = async () => {
     if (!wallet.publicKey) {
@@ -162,12 +110,6 @@ const CreateCharacter = () => {
     if (cooldown > 0) {
       toast({ title: `Cooldown active: ${cooldown}s remaining`, variant: 'destructive' });
       return;
-    }
-
-    // Check if payment is needed
-    if (genStatus?.requiresPayment) {
-      const paid = await handlePayment();
-      if (!paid) return;
     }
 
     setIsGenerating(true);
@@ -184,13 +126,7 @@ const CreateCharacter = () => {
       }
       if (data?.imageUrl) {
         setGeneratedImage(data.imageUrl);
-        setGenStatus({
-          generationCount: data.generationCount,
-          freeRemaining: data.freeRemaining,
-          requiresPayment: data.requiresPayment,
-          cooldownRemaining: 30,
-        });
-        setCooldown(30);
+        setCooldown(COOLDOWN_SECONDS);
         toast({ title: 'Character generated!' });
       } else {
         throw new Error(data?.error || 'No image returned');
@@ -212,9 +148,6 @@ const CreateCharacter = () => {
     });
   };
 
-  const isFree = genStatus ? !genStatus.requiresPayment : true;
-  const freeRemaining = genStatus?.freeRemaining ?? FREE_GENERATIONS;
-
   return (
     <div className="container py-8 max-w-2xl">
       <h1 className="font-display text-3xl font-bold mb-2">Create a Character</h1>
@@ -224,172 +157,139 @@ const CreateCharacter = () => {
       <div className="space-y-6">
         {/* Wallet gate */}
         {!wallet.connected ? (
-            <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
-              <Wallet className="h-12 w-12 mx-auto text-muted-foreground" />
-              <p className="font-mono text-sm text-muted-foreground">Connect your wallet to generate AI characters</p>
-              <div className="flex justify-center">
-                <WalletMultiButton />
-              </div>
+          <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
+            <Wallet className="h-12 w-12 mx-auto text-muted-foreground" />
+            <p className="font-mono text-sm text-muted-foreground">Connect your wallet to generate AI characters</p>
+            <div className="flex justify-center">
+              <WalletMultiButton />
             </div>
-          ) : (
-            <>
-              {/* Generation counter */}
-              <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Zap className={`h-5 w-5 ${isFree ? 'text-primary' : 'text-secondary'}`} />
-                  <div>
-                    {isFree ? (
-                      <p className="font-mono text-sm">
-                        <span className="text-primary font-bold">{freeRemaining}/{FREE_GENERATIONS}</span>{' '}
-                        <span className="text-muted-foreground">free generations remaining</span>
-                      </p>
-                    ) : (
-                      <p className="font-mono text-sm">
-                        <span className="text-secondary font-bold">{COST_SOL} SOL</span>{' '}
-                        <span className="text-muted-foreground">per generation</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {cooldown > 0 && (
-                  <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {cooldown}s
-                  </div>
-                )}
-              </div>
+          </div>
+        ) : (
+          <>
+            {/* Prompt input */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-2 block">Describe your brainrot character</label>
+              <Textarea
+                className="bg-muted border-border font-mono text-lg min-h-[100px]"
+                placeholder={placeholderPrompts[placeholderIndex]}
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                disabled={isGenerating}
+              />
+            </div>
 
-              {/* Prompt input */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-2 block">Describe your brainrot character</label>
-                <Textarea
-                  className="bg-muted border-border font-mono text-lg min-h-[100px]"
-                  placeholder={placeholderPrompts[placeholderIndex]}
-                  value={aiPrompt}
-                  onChange={e => setAiPrompt(e.target.value)}
-                  disabled={isGenerating}
-                />
-              </div>
-
-              {/* Inspiration image upload */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-2 block">Reference / Inspiration Image (optional)</label>
-                <input
-                  type="file"
-                  ref={inspirationInputRef}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setInspirationFile(file);
-                      setInspirationImage(URL.createObjectURL(file));
-                    }
-                  }}
-                  accept="image/*"
-                  className="hidden"
-                />
-                {inspirationImage ? (
-                  <div className="relative inline-block">
-                    <img src={inspirationImage} alt="Inspiration" className="w-20 h-20 rounded-lg object-cover border border-border" />
-                    <button
-                      onClick={() => { setInspirationImage(null); setInspirationFile(null); }}
-                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ) : (
+            {/* Inspiration image upload */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-2 block">Reference / Inspiration Image (optional)</label>
+              <input
+                type="file"
+                ref={inspirationInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setInspirationFile(file);
+                    setInspirationImage(URL.createObjectURL(file));
+                  }
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+              {inspirationImage ? (
+                <div className="relative inline-block">
+                  <img src={inspirationImage} alt="Inspiration" className="w-20 h-20 rounded-lg object-cover border border-border" />
                   <button
-                    onClick={() => inspirationInputRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 border border-dashed border-border rounded-lg text-xs text-muted-foreground hover:border-primary/30 transition-colors"
+                    onClick={() => { setInspirationImage(null); setInspirationFile(null); }}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
                   >
-                    <ImagePlus className="h-4 w-4" /> Add inspiration image
+                    <X className="h-3 w-3" />
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => inspirationInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 border border-dashed border-border rounded-lg text-xs text-muted-foreground hover:border-primary/30 transition-colors"
+                >
+                  <ImagePlus className="h-4 w-4" /> Add inspiration image
+                </button>
+              )}
+            </div>
 
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !aiPrompt.trim() || cooldown > 0 || isPaying}
-                className={`w-full font-display font-bold text-lg py-6 disabled:opacity-50 ${
-                  genStatus?.requiresPayment
-                    ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90 box-glow-purple'
-                    : 'bg-primary text-primary-foreground hover:bg-primary/90 box-glow-green'
-                }`}
-              >
-                {isPaying ? (
-                  <><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Sending {COST_SOL} SOL...</>
-                ) : isGenerating ? (
-                  <><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Generating...</>
-                ) : cooldown > 0 ? (
-                  <><Clock className="mr-2 h-5 w-5" /> Cooldown {cooldown}s</>
-                ) : genStatus?.requiresPayment ? (
-                  <><Zap className="mr-2 h-5 w-5" /> Pay {COST_SOL} SOL & Generate</>
-                ) : (
-                  <><Brain className="mr-2 h-5 w-5" /> Generate Character</>
-                )}
-              </Button>
+            {/* Generate button */}
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !aiPrompt.trim() || cooldown > 0}
+              className="w-full font-display font-bold text-lg py-6 disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 box-glow-green"
+            >
+              {isGenerating ? (
+                <><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Generating...</>
+              ) : cooldown > 0 ? (
+                <><Clock className="mr-2 h-5 w-5" /> Cooldown {cooldown}s</>
+              ) : (
+                <><Brain className="mr-2 h-5 w-5" /> Generate Character</>
+              )}
+            </Button>
 
-              {/* Loading state */}
-              <AnimatePresence>
-                {isGenerating && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="bg-card border border-border rounded-lg p-12 text-center"
-                  >
-                    <div className="relative w-24 h-24 mx-auto mb-4">
-                      <div className="absolute inset-0 rounded-full border-4 border-secondary/30 animate-spin border-t-secondary" />
-                      <Brain className="absolute inset-0 m-auto h-10 w-10 text-secondary animate-pulse" />
-                    </div>
-                    <AnimatePresence mode="wait">
-                      <motion.p
-                        key={loadingMsgIndex}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -5 }}
-                        className="font-mono text-sm text-muted-foreground"
-                      >
-                        {loadingMessages[loadingMsgIndex]}
-                      </motion.p>
-                    </AnimatePresence>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            {/* Loading state */}
+            <AnimatePresence>
+              {isGenerating && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="bg-card border border-border rounded-lg p-12 text-center"
+                >
+                  <div className="relative w-24 h-24 mx-auto mb-4">
+                    <div className="absolute inset-0 rounded-full border-4 border-secondary/30 animate-spin border-t-secondary" />
+                    <Brain className="absolute inset-0 m-auto h-10 w-10 text-secondary animate-pulse" />
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={loadingMsgIndex}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="font-mono text-sm text-muted-foreground"
+                    >
+                      {loadingMessages[loadingMsgIndex]}
+                    </motion.p>
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-              {/* Generated image preview */}
-              <AnimatePresence>
-                {generatedImage && !isGenerating && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="space-y-4"
-                  >
-                    <div className="relative mx-auto w-fit rounded-xl p-[3px] bg-gradient-to-br from-primary via-secondary to-primary animate-pulse">
-                      <div className="rounded-xl overflow-hidden bg-background">
-                        <img
-                          src={generatedImage}
-                          alt="Generated brainrot character"
-                          className="w-[400px] h-[400px] object-cover"
-                        />
-                      </div>
+            {/* Generated image preview */}
+            <AnimatePresence>
+              {generatedImage && !isGenerating && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="space-y-4"
+                >
+                  <div className="relative mx-auto w-fit rounded-xl p-[3px] bg-gradient-to-br from-primary via-secondary to-primary animate-pulse">
+                    <div className="rounded-xl overflow-hidden bg-background">
+                      <img
+                        src={generatedImage}
+                        alt="Generated brainrot character"
+                        className="w-[400px] h-[400px] object-cover"
+                      />
                     </div>
-                    <div className="flex gap-3 justify-center flex-wrap">
-                      <Button variant="outline" onClick={handleGenerate} disabled={cooldown > 0} className="border-border text-muted-foreground">
-                        <RefreshCw className="h-4 w-4 mr-2" /> {cooldown > 0 ? `Wait ${cooldown}s` : 'Regenerate'}
-                      </Button>
-                      <Button onClick={handleUseCharacter} className="bg-primary text-primary-foreground font-display font-bold hover:bg-primary/90 box-glow-green">
-                        <ArrowDown className="h-4 w-4 mr-2" /> Use This Character
-                      </Button>
-                      <Button onClick={handleLaunchAsCoin} className="bg-secondary text-secondary-foreground font-display font-bold hover:bg-secondary/90 box-glow-purple">
-                        <Rocket className="h-4 w-4 mr-2" /> Launch as Coin
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </>
-          )}
+                  </div>
+                  <div className="flex gap-3 justify-center flex-wrap">
+                    <Button variant="outline" onClick={handleGenerate} disabled={cooldown > 0} className="border-border text-muted-foreground">
+                      <RefreshCw className="h-4 w-4 mr-2" /> {cooldown > 0 ? `Wait ${cooldown}s` : 'Regenerate'}
+                    </Button>
+                    <Button onClick={handleUseCharacter} className="bg-primary text-primary-foreground font-display font-bold hover:bg-primary/90 box-glow-green">
+                      <ArrowDown className="h-4 w-4 mr-2" /> Use This Character
+                    </Button>
+                    <Button onClick={handleLaunchAsCoin} className="bg-secondary text-secondary-foreground font-display font-bold hover:bg-secondary/90 box-glow-purple">
+                      <Rocket className="h-4 w-4 mr-2" /> Launch as Coin
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
 
       {/* Character details section */}

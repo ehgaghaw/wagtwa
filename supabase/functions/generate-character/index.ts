@@ -7,9 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const FREE_GENERATIONS = 3;
 const COOLDOWN_SECONDS = 30;
-const COST_SOL = 0.01;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -42,9 +40,6 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({
         generationCount: count,
-        freeRemaining: Math.max(0, FREE_GENERATIONS - count),
-        requiresPayment: count >= FREE_GENERATIONS,
-        costSol: COST_SOL,
         cooldownRemaining,
       }), { headers: jsonHeaders });
     }
@@ -89,13 +84,6 @@ serve(async (req) => {
           cooldownRemaining: remaining,
         }), { status: 429, headers: jsonHeaders });
       }
-    }
-
-    // Check if payment required
-    if (record.generation_count >= FREE_GENERATIONS) {
-      // The frontend must handle payment before calling generate
-      // We trust the frontend sent a valid transaction signature
-      // In production, you'd verify the transaction on-chain here
     }
 
     // Call OpenAI
@@ -153,8 +141,6 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       imageUrl: resultUrl,
       generationCount: newCount,
-      freeRemaining: Math.max(0, FREE_GENERATIONS - newCount),
-      requiresPayment: newCount >= FREE_GENERATIONS,
     }), { headers: jsonHeaders });
   } catch (e) {
     console.error("generate-character error:", e);
