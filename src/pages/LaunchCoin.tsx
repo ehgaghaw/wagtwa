@@ -1,23 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle, Wallet } from 'lucide-react';
+import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle, Wallet, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { BRAINROT_UNIVERSES, type BrainrotUniverse } from '@/data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '@solana/wallet-adapter-react';
-
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  PublicKey,
-  Transaction,
-  SystemProgram,
-  LAMPORTS_PER_SOL,
-} from '@solana/web3.js';
 
-// Replace this with your actual proxy wallet address after creating it
 const PROXY_WALLET_ADDRESS = 'AN1CLgdCYnygqGCCiARUpn8xU1NG3uNym4DFhDowZ6dw';
 const LAUNCH_FEE_SOL = 0.02;
 
@@ -38,9 +30,10 @@ const LaunchCoin = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
-  const [launchStatus, setLaunchStatus] = useState<'idle' | 'paying' | 'creating' | 'done' | 'failed'>('idle');
+  const [launchStatus, setLaunchStatus] = useState<'idle' | 'creating' | 'done' | 'failed'>('idle');
   const [launchResult, setLaunchResult] = useState<{ mintAddress: string; launchId: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [paymentTxSignature, setPaymentTxSignature] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -72,7 +65,7 @@ const LaunchCoin = () => {
   };
 
   const uploadImageToStorage = async (): Promise<string | null> => {
-    if (!imageFile) return imagePreview; // might be a URL from prefill
+    if (!imageFile) return imagePreview;
 
     const fileExt = imageFile.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
@@ -92,83 +85,31 @@ const LaunchCoin = () => {
     return urlData.publicUrl;
   };
 
-  const handlePayAndLaunch = async () => {
-    if (!wallet.connected || !wallet.publicKey || !wallet.signTransaction) {
-      toast({ title: 'Connect your wallet first', variant: 'destructive' });
-      return;
-    }
+  const copyAddress = () => {
+    navigator.clipboard.writeText(PROXY_WALLET_ADDRESS);
+    toast({ title: 'Address copied!', description: 'Send SOL from your wallet to this address.' });
+  };
 
-    if (!PROXY_WALLET_ADDRESS) {
-      toast({ title: 'Proxy wallet not configured', variant: 'destructive' });
+  const handleLaunch = async () => {
+    if (!paymentTxSignature.trim()) {
+      toast({ title: 'Enter your payment transaction signature', variant: 'destructive' });
       return;
     }
 
     setIsLaunching(true);
-    setLaunchStatus('paying');
+    setLaunchStatus('creating');
     setErrorMessage(null);
 
     try {
-      // Step 1: Upload image to storage
       const imageUrl = await uploadImageToStorage();
       if (!imageUrl && imageFile) {
         throw new Error('Failed to upload image');
       }
 
-      // Step 2: Create a simple SOL transfer transaction
-      const proxyWalletPubkey = new PublicKey(PROXY_WALLET_ADDRESS);
-      const lamports = Math.floor(totalPayment * LAMPORTS_PER_SOL);
-
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: proxyWalletPubkey,
-          lamports,
-        })
-      );
-
-      let paymentSignature: string;
-
-      // Get latest blockhash via backend relay to avoid browser RPC 403 errors
-      const { data: blockhashData, error: blockhashError } = await supabase.functions.invoke('solana-relay', {
-        body: { action: 'getLatestBlockhash' },
-      });
-
-      if (blockhashError || !blockhashData?.blockhash) {
-        throw new Error('Could not prepare payment transaction. Please try again.');
-      }
-
-      transaction.recentBlockhash = blockhashData.blockhash;
-      transaction.feePayer = wallet.publicKey;
-
-      const signedTx = await wallet.signTransaction(transaction);
-      const txBytes = signedTx.serialize();
-      let binary = '';
-      txBytes.forEach((b) => {
-        binary += String.fromCharCode(b);
-      });
-      const serializedTransaction = btoa(binary);
-
-      const { data: relayData, error: relayError } = await supabase.functions.invoke('solana-relay', {
-        body: {
-          action: 'sendRawTransaction',
-          serializedTransaction,
-        },
-      });
-
-      if (relayError || !relayData?.signature) {
-        throw new Error(relayData?.error || relayError?.message || 'Payment transaction failed');
-      }
-
-      paymentSignature = relayData.signature;
-
-      toast({ title: 'Payment sent!', description: 'Creating your token...' });
-      setLaunchStatus('creating');
-
-      // Step 3: Call backend to create the token
       const { data, error } = await supabase.functions.invoke('launch-token', {
         body: {
-          userWallet: wallet.publicKey.toBase58(),
-          paymentSignature,
+          userWallet: wallet.publicKey?.toBase58() || 'unknown',
+          paymentSignature: paymentTxSignature.trim(),
           tokenName: form.name,
           tokenSymbol: form.ticker,
           tokenDescription: form.description,
@@ -206,7 +147,7 @@ const LaunchCoin = () => {
     }
   };
 
-  const totalSteps = 3;
+  const totalSteps = 4;
 
   return (
     <div className="container py-8 max-w-3xl">
@@ -215,7 +156,7 @@ const LaunchCoin = () => {
 
       {/* Steps indicator */}
       <div className="flex items-center gap-2 mb-8">
-        {[1, 2, 3].map(s => (
+        {[1, 2, 3, 4].map(s => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-display font-bold ${
               step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -227,11 +168,12 @@ const LaunchCoin = () => {
 
       <AnimatePresence mode="wait">
         <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
+
+          {/* STEP 1: Token Details */}
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Your Character & Coin Details</h2>
 
-              {/* Image upload */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Character Image / Coin Logo *</label>
                 <input
@@ -283,6 +225,7 @@ const LaunchCoin = () => {
             </div>
           )}
 
+          {/* STEP 2: Launch Settings */}
           {step === 2 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Launch Settings</h2>
@@ -297,7 +240,7 @@ const LaunchCoin = () => {
                   value={form.devBuy}
                   onChange={e => setForm(f => ({ ...f, devBuy: e.target.value }))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Optional amount used for initial buy on launch.</p>
+                <p className="text-xs text-muted-foreground mt-1">Optional: amount of SOL used for initial buy on launch (goes to dev wallet).</p>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Twitter/X</label>
@@ -314,7 +257,63 @@ const LaunchCoin = () => {
             </div>
           )}
 
+          {/* STEP 3: Send Payment */}
           {step === 3 && (
+            <div className="space-y-4">
+              <h2 className="font-display text-lg font-bold mb-4">Send Payment</h2>
+
+              <div className="glass-card rounded-xl p-6 space-y-4">
+                <div className="bg-accent/30 border border-accent/50 rounded-lg p-4 text-sm">
+                  <p className="font-semibold text-foreground mb-2 flex items-center gap-1">
+                    <Wallet className="h-4 w-4" /> Send exactly {totalPayment} SOL
+                  </p>
+                  <p className="text-muted-foreground text-xs mb-3">
+                    Open your wallet (Phantom, Solflare, etc.) and send a normal SOL transfer to the address below. This is a standard transfer — no dApp interaction, no Blowfish warnings.
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-muted rounded-lg px-3 py-2 text-xs font-mono break-all select-all">
+                      {PROXY_WALLET_ADDRESS}
+                    </code>
+                    <Button variant="outline" size="sm" onClick={copyAddress} className="shrink-0">
+                      <Copy className="h-3 w-3 mr-1" /> Copy
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Launch Fee</p>
+                    <p className="font-bold">{LAUNCH_FEE_SOL} SOL</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Dev Buy</p>
+                    <p className="font-bold">{devBuyAmount} SOL</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="font-bold text-primary">{totalPayment} SOL</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">After sending, paste your transaction signature here:</label>
+                  <Input
+                    className="bg-muted border-border font-mono text-xs"
+                    placeholder="Paste your transaction signature..."
+                    value={paymentTxSignature}
+                    onChange={e => setPaymentTxSignature(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Find it in your wallet's transaction history or on Solscan.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Confirm & Launch */}
+          {step === 4 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Review & Launch</h2>
               <div className="glass-card rounded-xl p-6 space-y-3">
@@ -332,31 +331,15 @@ const LaunchCoin = () => {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{form.description || 'No description'}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Launch Fee</p>
-                    <p className="font-bold">{LAUNCH_FEE_SOL} SOL</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Dev Buy</p>
-                    <p className="font-bold">{devBuyAmount} SOL</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Total Payment</p>
-                    <p className="font-bold">{totalPayment} SOL</p>
-                  </div>
+
+                <div className="bg-muted rounded-lg p-3 text-xs">
+                  <p className="text-muted-foreground">Payment TX</p>
+                  <p className="font-mono break-all">{paymentTxSignature || 'Not provided'}</p>
                 </div>
 
-                <div className="bg-accent/30 border border-accent/50 rounded-lg p-3 text-xs text-muted-foreground">
-                  <p className="font-semibold text-foreground mb-1 flex items-center gap-1">
-                    <Wallet className="h-3 w-3" /> How it works
-                  </p>
-                  <p>You'll send a simple {totalPayment} SOL transfer. The backend verifies payment and launches your token, avoiding wallet security warnings.</p>
-                </div>
-
-                {!wallet.connected && (
+                {!paymentTxSignature.trim() && (
                   <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" /> Connect your wallet to launch
+                    <AlertTriangle className="h-3 w-3" /> Go back and enter your payment transaction signature
                   </p>
                 )}
                 {!imageFile && !imagePreview && (
@@ -389,16 +372,14 @@ const LaunchCoin = () => {
                 </div>
               ) : (
                 <Button
-                  onClick={handlePayAndLaunch}
-                  disabled={isLaunching || !wallet.connected || (!imageFile && !imagePreview)}
+                  onClick={handleLaunch}
+                  disabled={isLaunching || !paymentTxSignature.trim() || (!imageFile && !imagePreview)}
                   className="w-full gradient-btn text-primary-foreground font-display font-bold text-lg py-6 rounded-xl border-0 disabled:opacity-50"
                 >
-                  {launchStatus === 'paying' ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sending Payment...</>
-                  ) : launchStatus === 'creating' ? (
+                  {isLaunching ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating Your Token...</>
                   ) : (
-                    <><Rocket className="mr-2 h-5 w-5" /> Pay {totalPayment} SOL & Launch</>
+                    <><Rocket className="mr-2 h-5 w-5" /> Launch Token</>
                   )}
                 </Button>
               )}
