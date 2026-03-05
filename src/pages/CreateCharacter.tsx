@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Zap, Clock } from 'lucide-react';
+import { Upload, Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Zap, Clock, ImagePlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,8 +13,6 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 const tags = ['cursed', 'wholesome rot', 'sigma', 'NPC', 'cooked'];
-const heads = ['Clown', 'Skull', 'Alien', 'Robot', 'Frog', 'Devil', 'Moai', 'Ghost'];
-const accessories = ['Top Hat', 'Shades', 'Crown', 'Mask', 'Cap', 'Diamond', 'Flame', 'Star'];
 
 const COST_SOL = 0.01;
 const FREE_GENERATIONS = 3;
@@ -41,9 +39,11 @@ const CreateCharacter = () => {
   const [name, setName] = useState('');
   const [lore, setLore] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedHead, setSelectedHead] = useState('');
-  const [selectedAccessory, setSelectedAccessory] = useState('');
-  const [mode, setMode] = useState<'builder' | 'upload' | 'ai'>('ai');
+
+  // Inspiration image
+  const [inspirationImage, setInspirationImage] = useState<string | null>(null);
+  const [inspirationFile, setInspirationFile] = useState<File | null>(null);
+  const inspirationInputRef = useRef<HTMLInputElement>(null);
 
   // AI generation state
   const [aiPrompt, setAiPrompt] = useState('');
@@ -220,31 +220,10 @@ const CreateCharacter = () => {
       <h1 className="font-display text-3xl font-bold mb-2">Create a Character</h1>
       <p className="text-muted-foreground text-sm mb-8 font-mono">Bring your brainrot vision to life</p>
 
-      {/* Mode tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {([
-          { key: 'ai' as const, label: 'AI Generate', icon: Brain },
-          { key: 'builder' as const, label: 'Character Builder', icon: Sparkles },
-          { key: 'upload' as const, label: 'Upload Art', icon: Upload },
-        ]).map(m => (
-          <button
-            key={m.key}
-            onClick={() => setMode(m.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-              mode === m.key ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/30'
-            }`}
-          >
-            <m.icon className="h-3.5 w-3.5" />
-            {m.label}
-          </button>
-        ))}
-      </div>
-
-      {/* AI Generate Tab */}
-      {mode === 'ai' && (
-        <div className="space-y-6">
-          {/* Wallet gate */}
-          {!wallet.connected ? (
+      {/* AI Generate */}
+      <div className="space-y-6">
+        {/* Wallet gate */}
+        {!wallet.connected ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
               <Wallet className="h-12 w-12 mx-auto text-muted-foreground" />
               <p className="font-mono text-sm text-muted-foreground">Connect your wallet to generate AI characters</p>
@@ -292,7 +271,42 @@ const CreateCharacter = () => {
                 />
               </div>
 
-              {/* Generate button */}
+              {/* Inspiration image upload */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-2 block">Reference / Inspiration Image (optional)</label>
+                <input
+                  type="file"
+                  ref={inspirationInputRef}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setInspirationFile(file);
+                      setInspirationImage(URL.createObjectURL(file));
+                    }
+                  }}
+                  accept="image/*"
+                  className="hidden"
+                />
+                {inspirationImage ? (
+                  <div className="relative inline-block">
+                    <img src={inspirationImage} alt="Inspiration" className="w-20 h-20 rounded-lg object-cover border border-border" />
+                    <button
+                      onClick={() => { setInspirationImage(null); setInspirationFile(null); }}
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => inspirationInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 border border-dashed border-border rounded-lg text-xs text-muted-foreground hover:border-primary/30 transition-colors"
+                  >
+                    <ImagePlus className="h-4 w-4" /> Add inspiration image
+                  </button>
+                )}
+              </div>
+
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || !aiPrompt.trim() || cooldown > 0 || isPaying}
@@ -376,45 +390,7 @@ const CreateCharacter = () => {
               </AnimatePresence>
             </>
           )}
-        </div>
-      )}
-
-      {/* Character Builder Tab */}
-      {mode === 'builder' && (
-        <div className="space-y-6">
-          <div>
-            <label className="text-xs text-muted-foreground mb-2 block">Head / Base</label>
-            <div className="flex gap-2 flex-wrap">
-              {heads.map(h => (
-                <button key={h} onClick={() => setSelectedHead(h)} className={`text-sm p-3 rounded-xl border font-medium transition-all ${selectedHead === h ? 'border-primary bg-primary/10 glow-pink' : 'border-border bg-card hover:border-primary/30'}`}>{h}</button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-2 block">Accessory</label>
-            <div className="flex gap-2 flex-wrap">
-              {accessories.map(a => (
-                <button key={a} onClick={() => setSelectedAccessory(a)} className={`text-sm p-3 rounded-xl border font-medium transition-all ${selectedAccessory === a ? 'border-secondary bg-secondary/10 glow-purple' : 'border-border bg-card hover:border-secondary/30'}`}>{a}</button>
-              ))}
-            </div>
-          </div>
-          {(selectedHead || selectedAccessory) && (
-            <div className="glass-card rounded-xl p-8 text-center">
-              <p className="text-xs text-muted-foreground mb-2">Preview</p>
-              <div className="text-xl font-display font-bold">{selectedHead} + {selectedAccessory}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Upload Art Tab */}
-      {mode === 'upload' && (
-        <div className="border-2 border-dashed border-border rounded-lg p-12 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer">
-          <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <p className="text-muted-foreground font-mono">Click or drag to upload character art</p>
-          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 5MB</p>
-        </div>
-      )}
+      </div>
 
       {/* Character details section */}
       <div ref={detailsRef} className="space-y-4 mt-6">
