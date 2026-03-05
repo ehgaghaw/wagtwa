@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_generations: {
+        Row: {
+          created_at: string
+          generation_count: number
+          id: string
+          last_generated_at: string | null
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          generation_count?: number
+          id?: string
+          last_generated_at?: string | null
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          generation_count?: number
+          id?: string
+          last_generated_at?: string | null
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
