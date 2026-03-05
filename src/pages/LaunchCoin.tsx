@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle, Wallet, Copy } from 'lucide-react';
+import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,9 +9,6 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-
-const PROXY_WALLET_ADDRESS = 'AN1CLgdCYnygqGCCiARUpn8xU1NG3uNym4DFhDowZ6dw';
-const LAUNCH_FEE_SOL = 0.02;
 
 const LaunchCoin = () => {
   const location = useLocation();
@@ -31,9 +28,8 @@ const LaunchCoin = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchStatus, setLaunchStatus] = useState<'idle' | 'creating' | 'done' | 'failed'>('idle');
-  const [launchResult, setLaunchResult] = useState<{ mintAddress: string; launchId: string } | null>(null);
+  const [launchResult, setLaunchResult] = useState<{ mintAddress: string; transactionSignature: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [paymentTxSignature, setPaymentTxSignature] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -53,46 +49,28 @@ const LaunchCoin = () => {
 
   const wallet = useWallet();
   const devBuyAmount = Math.max(0, parseFloat(form.devBuy) || 0);
-  const totalPayment = Number((LAUNCH_FEE_SOL + devBuyAmount).toFixed(4));
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
-      const url = URL.createObjectURL(file);
-      setImagePreview(url);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
   const uploadImageToStorage = async (): Promise<string | null> => {
     if (!imageFile) return imagePreview;
-
     const fileExt = imageFile.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-    const { error } = await supabase.storage
-      .from('character-images')
-      .upload(fileName, imageFile);
-
-    if (error) {
-      console.error('Image upload error:', error);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('character-images')
-      .getPublicUrl(fileName);
-
+    const { error } = await supabase.storage.from('character-images').upload(fileName, imageFile);
+    if (error) { console.error('Image upload error:', error); return null; }
+    const { data: urlData } = supabase.storage.from('character-images').getPublicUrl(fileName);
     return urlData.publicUrl;
   };
 
-  const copyAddress = () => {
-    navigator.clipboard.writeText(PROXY_WALLET_ADDRESS);
-    toast({ title: 'Address copied!', description: 'Send SOL from your wallet to this address.' });
-  };
-
   const handleLaunch = async () => {
-    if (!paymentTxSignature.trim()) {
-      toast({ title: 'Enter your payment transaction signature', variant: 'destructive' });
+    if (!form.name || !form.ticker) {
+      toast({ title: 'Fill in name and ticker', variant: 'destructive' });
       return;
     }
 
@@ -102,19 +80,15 @@ const LaunchCoin = () => {
 
     try {
       const imageUrl = await uploadImageToStorage();
-      if (!imageUrl && imageFile) {
-        throw new Error('Failed to upload image');
-      }
+      if (!imageUrl && imageFile) throw new Error('Failed to upload image');
 
       const { data, error } = await supabase.functions.invoke('launch-token', {
         body: {
-          userWallet: wallet.publicKey?.toBase58() || 'unknown',
-          paymentSignature: paymentTxSignature.trim(),
+          userWallet: wallet.publicKey?.toBase58() || 'anonymous',
           tokenName: form.name,
           tokenSymbol: form.ticker,
           tokenDescription: form.description,
           tokenImageUrl: imageUrl || '',
-          solAmount: totalPayment,
           devBuyAmount,
           universe: form.universe,
           twitter: form.twitter || null,
@@ -123,18 +97,10 @@ const LaunchCoin = () => {
         },
       });
 
-      if (error) {
-        throw new Error(error.message || 'Token creation failed');
-      }
+      if (error) throw new Error(error.message || 'Token creation failed');
+      if (data?.error) throw new Error(data.error);
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      setLaunchResult({
-        mintAddress: data.mintAddress,
-        launchId: data.launchId,
-      });
+      setLaunchResult({ mintAddress: data.mintAddress, transactionSignature: data.transactionSignature });
       setLaunchStatus('done');
       toast({ title: 'Token launched!', description: `Mint: ${data.mintAddress?.slice(0, 8)}...` });
     } catch (err: any) {
@@ -147,16 +113,15 @@ const LaunchCoin = () => {
     }
   };
 
-  const totalSteps = 4;
+  const totalSteps = 3;
 
   return (
     <div className="container py-8 max-w-3xl">
       <h1 className="font-display text-3xl font-bold mb-2">Launch a Coin</h1>
       <p className="text-muted-foreground text-sm mb-8">Deploy your brainrot on Solana via Pump.fun's bonding curve</p>
 
-      {/* Steps indicator */}
       <div className="flex items-center gap-2 mb-8">
-        {[1, 2, 3, 4].map(s => (
+        {[1, 2, 3].map(s => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-display font-bold ${
               step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -169,20 +134,12 @@ const LaunchCoin = () => {
       <AnimatePresence mode="wait">
         <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
 
-          {/* STEP 1: Token Details */}
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Your Character & Coin Details</h2>
-
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Character Image / Coin Logo *</label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer w-32 h-32 flex flex-col items-center justify-center"
@@ -190,14 +147,10 @@ const LaunchCoin = () => {
                   {imagePreview ? (
                     <img src={imagePreview} alt="Preview" className="w-full h-full rounded-lg object-cover" />
                   ) : (
-                    <>
-                      <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                      <p className="text-xs text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload'}</p>
-                    </>
+                    <><Upload className="h-6 w-6 text-muted-foreground mb-1" /><p className="text-xs text-muted-foreground">Click to upload</p></>
                   )}
                 </div>
               </div>
-
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Coin Name</label>
                 <Input className="bg-muted border-border" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
@@ -212,35 +165,20 @@ const LaunchCoin = () => {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Brainrot Universe</label>
-                <select
-                  className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm text-foreground"
-                  value={form.universe}
-                  onChange={e => setForm(f => ({ ...f, universe: e.target.value as BrainrotUniverse }))}
-                >
-                  {BRAINROT_UNIVERSES.filter(u => u !== 'All').map(u => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
+                <select className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm text-foreground" value={form.universe} onChange={e => setForm(f => ({ ...f, universe: e.target.value as BrainrotUniverse }))}>
+                  {BRAINROT_UNIVERSES.filter(u => u !== 'All').map(u => (<option key={u} value={u}>{u}</option>))}
                 </select>
               </div>
             </div>
           )}
 
-          {/* STEP 2: Launch Settings */}
           {step === 2 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Launch Settings</h2>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Dev Buy Amount (SOL)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  className="bg-muted border-border"
-                  placeholder="0"
-                  value={form.devBuy}
-                  onChange={e => setForm(f => ({ ...f, devBuy: e.target.value }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Optional: amount of SOL used for initial buy on launch (goes to dev wallet).</p>
+                <Input type="number" min="0" step="0.001" className="bg-muted border-border" placeholder="0" value={form.devBuy} onChange={e => setForm(f => ({ ...f, devBuy: e.target.value }))} />
+                <p className="text-xs text-muted-foreground mt-1">Optional: SOL used for initial buy on launch.</p>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Twitter/X</label>
@@ -257,63 +195,7 @@ const LaunchCoin = () => {
             </div>
           )}
 
-          {/* STEP 3: Send Payment */}
           {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="font-display text-lg font-bold mb-4">Send Payment</h2>
-
-              <div className="glass-card rounded-xl p-6 space-y-4">
-                <div className="bg-accent/30 border border-accent/50 rounded-lg p-4 text-sm">
-                  <p className="font-semibold text-foreground mb-2 flex items-center gap-1">
-                    <Wallet className="h-4 w-4" /> Send exactly {totalPayment} SOL
-                  </p>
-                  <p className="text-muted-foreground text-xs mb-3">
-                    Open your wallet (Phantom, Solflare, etc.) and send a normal SOL transfer to the address below. This is a standard transfer — no dApp interaction, no Blowfish warnings.
-                  </p>
-
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-muted rounded-lg px-3 py-2 text-xs font-mono break-all select-all">
-                      {PROXY_WALLET_ADDRESS}
-                    </code>
-                    <Button variant="outline" size="sm" onClick={copyAddress} className="shrink-0">
-                      <Copy className="h-3 w-3 mr-1" /> Copy
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Launch Fee</p>
-                    <p className="font-bold">{LAUNCH_FEE_SOL} SOL</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Dev Buy</p>
-                    <p className="font-bold">{devBuyAmount} SOL</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="font-bold text-primary">{totalPayment} SOL</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">After sending, paste your transaction signature here:</label>
-                  <Input
-                    className="bg-muted border-border font-mono text-xs"
-                    placeholder="Paste your transaction signature..."
-                    value={paymentTxSignature}
-                    onChange={e => setPaymentTxSignature(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Find it in your wallet's transaction history or on Solscan.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4: Confirm & Launch */}
-          {step === 4 && (
             <div className="space-y-4">
               <h2 className="font-display text-lg font-bold mb-4">Review & Launch</h2>
               <div className="glass-card rounded-xl p-6 space-y-3">
@@ -321,9 +203,7 @@ const LaunchCoin = () => {
                   {imagePreview ? (
                     <img src={imagePreview} alt="Coin" className="w-16 h-16 rounded-xl object-cover" />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                      <Upload className="h-6 w-6 text-muted-foreground" />
-                    </div>
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center"><Upload className="h-6 w-6 text-muted-foreground" /></div>
                   )}
                   <div>
                     <p className="font-display text-xl font-bold">{form.name || 'Unnamed Coin'}</p>
@@ -331,17 +211,17 @@ const LaunchCoin = () => {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{form.description || 'No description'}</p>
-
-                <div className="bg-muted rounded-lg p-3 text-xs">
-                  <p className="text-muted-foreground">Payment TX</p>
-                  <p className="font-mono break-all">{paymentTxSignature || 'Not provided'}</p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Dev Buy</p>
+                    <p className="font-bold">{devBuyAmount} SOL</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Platform</p>
+                    <p className="font-bold">Pump.fun</p>
+                  </div>
                 </div>
 
-                {!paymentTxSignature.trim() && (
-                  <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" /> Go back and enter your payment transaction signature
-                  </p>
-                )}
                 {!imageFile && !imagePreview && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" /> Go back and upload a coin image
@@ -353,33 +233,31 @@ const LaunchCoin = () => {
                 <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-2">
                   <p className="font-display font-bold text-primary">Token Launched!</p>
                   <p className="text-xs text-muted-foreground">Mint: {launchResult.mintAddress}</p>
-                  <a href={`https://pump.fun/${launchResult.mintAddress}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    <ExternalLink className="h-3 w-3" /> View on Pump.fun
-                  </a>
+                  <div className="flex gap-4">
+                    <a href={`https://pump.fun/${launchResult.mintAddress}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> View on Pump.fun
+                    </a>
+                    <a href={`https://solscan.io/tx/${launchResult.transactionSignature}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> View on Solscan
+                    </a>
+                  </div>
                 </div>
               ) : launchStatus === 'failed' ? (
                 <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 space-y-2">
                   <p className="font-display font-bold text-destructive">Launch Failed</p>
-                  <p className="text-xs text-muted-foreground">{errorMessage || 'Something went wrong. Your payment may need to be refunded.'}</p>
-                  <Button
-                    onClick={() => { setLaunchStatus('idle'); setErrorMessage(null); }}
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                  >
-                    Try Again
-                  </Button>
+                  <p className="text-xs text-muted-foreground">{errorMessage || 'Something went wrong.'}</p>
+                  <Button onClick={() => { setLaunchStatus('idle'); setErrorMessage(null); }} variant="outline" size="sm" className="mt-2">Try Again</Button>
                 </div>
               ) : (
                 <Button
                   onClick={handleLaunch}
-                  disabled={isLaunching || !paymentTxSignature.trim() || (!imageFile && !imagePreview)}
+                  disabled={isLaunching || (!imageFile && !imagePreview) || !form.name || !form.ticker}
                   className="w-full gradient-btn text-primary-foreground font-display font-bold text-lg py-6 rounded-xl border-0 disabled:opacity-50"
                 >
                   {isLaunching ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating Your Token...</>
                   ) : (
-                    <><Rocket className="mr-2 h-5 w-5" /> Launch Token</>
+                    <><Rocket className="mr-2 h-5 w-5" /> Launch on Pump.fun</>
                   )}
                 </Button>
               )}
