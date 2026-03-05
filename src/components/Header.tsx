@@ -20,10 +20,10 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="container flex h-14 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center">
-            <img src={rotLogo} alt="ROT" className="h-10 w-auto" style={{ filter: 'invert(1)', mixBlendMode: 'screen' }} />
+            <img src={rotLogo} alt="ROT" className="h-14 w-auto brightness-[10] contrast-[0.8]" />
           </Link>
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map(({ path, label }) => (
