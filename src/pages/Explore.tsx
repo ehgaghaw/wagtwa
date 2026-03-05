@@ -16,62 +16,17 @@ const filters: { key: Filter; label: string; icon: React.ComponentType<{ classNa
   { key: 'graduating', label: 'Graduating', icon: GraduationCap },
 ];
 
-interface DexToken {
-  name: string;
-  symbol: string;
-  address: string;
-  priceUsd: number;
-  priceChange24h: number;
-  volume24h: number;
-  marketCap: number;
-  imageUrl?: string;
-}
-
-const fetchDexScreenerTokens = async (query: string = 'brainrot'): Promise<DexToken[]> => {
-  try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data.pairs) return [];
-
-    const seen = new Set<string>();
-    const tokens: DexToken[] = [];
-
-    for (const pair of data.pairs) {
-      if (pair.chainId !== 'solana') continue;
-      const addr = pair.baseToken?.address;
-      if (!addr || seen.has(addr)) continue;
-      seen.add(addr);
-
-      tokens.push({
-        name: pair.baseToken.name || 'Unknown',
-        symbol: pair.baseToken.symbol || '???',
-        address: addr,
-        priceUsd: parseFloat(pair.priceUsd || '0'),
-        priceChange24h: pair.priceChange?.h24 || 0,
-        volume24h: pair.volume?.h24 || 0,
-        marketCap: pair.marketCap || pair.fdv || 0,
-        imageUrl: pair.info?.imageUrl,
-      });
-    }
-    return tokens.slice(0, 20);
-  } catch {
-    return [];
-  }
-};
-
 const Explore = () => {
   const [filter, setFilter] = useState<Filter>('trending');
   const [search, setSearch] = useState('');
   const [universe, setUniverse] = useState<BrainrotUniverse>('All');
-  const [dexTokens, setDexTokens] = useState<DexToken[]>([]);
-  const [dexLoading, setDexLoading] = useState(false);
-  const [useDex, setUseDex] = useState(false);
   const [launchedCoins, setLaunchedCoins] = useState<BrainrotCoin[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchLaunchedCoins = useCallback(async () => {
+    setLoading(true);
     const { data } = await supabase.from('launched_coins' as any).select('*').order('created_at', { ascending: false });
-    if (!data) return;
+    if (!data) { setLoading(false); return; }
     const mapped: BrainrotCoin[] = (data as any[]).map((c, i) => ({
       id: c.id,
       name: c.name,
@@ -90,24 +45,13 @@ const Explore = () => {
       holders: 0,
       tags: [],
       universe: (c.universe || 'Italian Brainrot') as BrainrotUniverse,
-      mintAddress: c.mint_address,
     }));
     setLaunchedCoins(mapped);
-  }, []);
-
-  // Load DexScreener data
-  const loadDex = useCallback(async (q: string) => {
-    setDexLoading(true);
-    const tokens = await fetchDexScreenerTokens(q);
-    setDexTokens(tokens);
-    setUseDex(tokens.length > 0);
-    setDexLoading(false);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadDex('brainrot');
     fetchLaunchedCoins();
-
     const channel = supabase
       .channel('launched-coins-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'launched_coins' }, () => {
@@ -115,33 +59,9 @@ const Explore = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [loadDex, fetchLaunchedCoins]);
+  }, [fetchLaunchedCoins]);
 
-  // Convert dex tokens to BrainrotCoin format for CoinCard
-  const dexAsCoins: BrainrotCoin[] = dexTokens.map((t, i) => ({
-    id: `dex-${t.address}`,
-    name: t.name,
-    ticker: t.symbol,
-    description: '',
-    image: t.imageUrl || '',
-    avatarGradient: `linear-gradient(135deg, hsl(${(i * 37) % 360} 60% 45%), hsl(${(i * 37 + 40) % 360} 50% 55%))`,
-    avatarLetter: t.symbol.charAt(0),
-    price: t.priceUsd,
-    priceChange24h: t.priceChange24h,
-    marketCap: t.marketCap,
-    volume24h: t.volume24h,
-    bondingProgress: Math.min(100, Math.floor((t.marketCap / 100000) * 100)),
-    creator: t.address,
-    createdAt: 'live',
-    holders: 0,
-    tags: [],
-    universe: 'All' as BrainrotUniverse,
-  }));
-
-  // Combine launched coins + dex tokens
-  const allCoins = [...launchedCoins, ...dexAsCoins];
-
-  const filtered = allCoins
+  const filtered = launchedCoins
     .filter(c => universe === 'All' || c.universe === universe)
     .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.ticker.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
@@ -156,7 +76,6 @@ const Explore = () => {
 
   return (
     <div className="container py-6">
-      {/* Universe Filter */}
       <div className="mb-4">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">Brainrot Universes</p>
         <UniverseFilter selected={universe} onChange={setUniverse} />
@@ -193,18 +112,18 @@ const Explore = () => {
         </div>
       </div>
 
-      {dexLoading && (
+      {loading && (
         <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" /> Loading live token data...
+          <Loader2 className="h-3 w-3 animate-spin" /> Loading coins...
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {filtered.map(coin => <CoinCard key={coin.id} coin={coin} />)}
       </div>
-      {filtered.length === 0 && !dexLoading && (
+      {filtered.length === 0 && !loading && (
         <div className="text-center py-16 text-muted-foreground text-sm">
-          No coins found.
+          No coins launched yet. Be the first to launch!
         </div>
       )}
     </div>
