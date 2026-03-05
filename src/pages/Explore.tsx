@@ -31,44 +31,43 @@ const Explore = () => {
     });
 
   return (
-    <div className="container py-8">
-      <h1 className="font-display text-3xl font-bold mb-6">Explore Coins</h1>
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+    <div className="container py-6">
+      <div className="flex flex-col md:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name or ticker..."
-            className="pl-10 bg-muted border-border"
+            className="pl-10 bg-card border-border text-sm h-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap">
           {filters.map(f => {
             const Icon = f.icon;
             return (
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 border ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all duration-150 border ${
                   filter === f.key
                     ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/30'
+                    : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/50'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-3 w-3" />
                 {f.label}
               </button>
             );
           })}
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {filtered.map(coin => <CoinCard key={coin.id} coin={coin} />)}
       </div>
       {filtered.length === 0 && (
-        <div className="text-center py-20 text-muted-foreground">
-          No coins found matching your search.
+        <div className="text-center py-16 text-muted-foreground text-sm">
+          No coins found.
         </div>
       )}
     </div>
