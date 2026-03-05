@@ -41,6 +41,109 @@ export type Database = {
         }
         Relationships: []
       }
+      video_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          video_id: string
+          wallet_address: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          video_id: string
+          wallet_address: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          video_id?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_comments_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_likes: {
+        Row: {
+          created_at: string
+          id: string
+          video_id: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          video_id: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          video_id?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_likes_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          comments_count: number
+          created_at: string
+          description: string | null
+          id: string
+          likes_count: number
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          universe: string
+          video_url: string
+          wallet_address: string
+        }
+        Insert: {
+          comments_count?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          likes_count?: number
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          universe?: string
+          video_url: string
+          wallet_address: string
+        }
+        Update: {
+          comments_count?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          likes_count?: number
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          universe?: string
+          video_url?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
