@@ -18,7 +18,7 @@ import {
 } from '@solana/web3.js';
 
 // Replace this with your actual proxy wallet address after creating it
-const PROXY_WALLET_ADDRESS = 'YOUR_PROXY_WALLET_ADDRESS';
+const PROXY_WALLET_ADDRESS = 'AN1CLgdCYnygqGCCiARUpn8xU1NG3uNym4DFhDowZ6dw';
 const LAUNCH_FEE_SOL = 0.02;
 
 const LaunchCoin = () => {
@@ -96,8 +96,8 @@ const LaunchCoin = () => {
       return;
     }
 
-    if (PROXY_WALLET_ADDRESS === 'YOUR_PROXY_WALLET_ADDRESS') {
-      toast({ title: 'Proxy wallet not configured', description: 'The platform proxy wallet address needs to be set up.', variant: 'destructive' });
+    if (!PROXY_WALLET_ADDRESS) {
+      toast({ title: 'Proxy wallet not configured', variant: 'destructive' });
       return;
     }
 
