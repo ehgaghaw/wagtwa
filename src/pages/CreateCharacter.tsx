@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Clock, ImagePlus, X, Plus } from 'lucide-react';
+import { Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Clock, ImagePlus, X, Plus, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,6 +43,11 @@ const CreateCharacter = () => {
   const [inspirationImage, setInspirationImage] = useState<string | null>(null);
   const [inspirationFile, setInspirationFile] = useState<File | null>(null);
   const inspirationInputRef = useRef<HTMLInputElement>(null);
+
+  // Custom image upload (use your own)
+  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+  const customImageInputRef = useRef<HTMLInputElement>(null);
 
   // AI generation state
   const [aiPrompt, setAiPrompt] = useState('');
@@ -155,15 +160,26 @@ const CreateCharacter = () => {
     detailsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const canSubmit = generatedImage && name.trim() && lore.trim() && selectedTags.length > 0 && selectedUniverse;
+  const activeImage = generatedImage || customImagePreview;
+  const canSubmit = activeImage && name.trim() && lore.trim() && selectedTags.length > 0 && selectedUniverse;
+
+  const uploadCustomImage = async (): Promise<string | null> => {
+    if (!customImageFile) return customImagePreview;
+    const ext = customImageFile.name.split('.').pop();
+    const path = `characters/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from('character-images').upload(path, customImageFile);
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from('character-images').getPublicUrl(path);
+    return urlData.publicUrl;
+  };
 
   const handleSubmitToGallery = async () => {
     if (!wallet.publicKey) {
       toast({ title: 'Connect your wallet first', variant: 'destructive' });
       return;
     }
-    if (!generatedImage) {
-      toast({ title: 'Generate a character image first', variant: 'destructive' });
+    if (!activeImage) {
+      toast({ title: 'Generate or upload a character image first', variant: 'destructive' });
       return;
     }
     if (!name.trim()) {
@@ -185,12 +201,16 @@ const CreateCharacter = () => {
 
     setIsSubmitting(true);
     try {
+      let imageUrl = generatedImage;
+      if (!imageUrl && customImageFile) {
+        imageUrl = await uploadCustomImage();
+      }
       const { error } = await supabase.from('characters').insert({
         wallet_address: wallet.publicKey.toBase58(),
         name: name.trim(),
         lore: lore.trim(),
         tags: selectedTags,
-        image_url: generatedImage,
+        image_url: imageUrl,
         universe: selectedUniverse,
       } as any);
       if (error) throw error;
@@ -200,6 +220,8 @@ const CreateCharacter = () => {
       setSelectedTags([]);
       setSelectedUniverse('');
       setGeneratedImage(null);
+      setCustomImageFile(null);
+      setCustomImagePreview(null);
       setAiPrompt('');
     } catch (err: any) {
       toast({ title: 'Submission failed', description: err.message, variant: 'destructive' });
@@ -208,9 +230,9 @@ const CreateCharacter = () => {
     }
   };
 
-  const handleLaunchAsCoin = () => {
-    if (!generatedImage) {
-      toast({ title: 'Generate a character image first', variant: 'destructive' });
+  const handleLaunchAsCoin = async () => {
+    if (!activeImage) {
+      toast({ title: 'Generate or upload a character image first', variant: 'destructive' });
       return;
     }
     if (!name.trim()) {
@@ -221,8 +243,17 @@ const CreateCharacter = () => {
       toast({ title: 'Enter lore / backstory', variant: 'destructive' });
       return;
     }
+    let imageUrl = generatedImage;
+    if (!imageUrl && customImageFile) {
+      try {
+        imageUrl = await uploadCustomImage();
+      } catch (err: any) {
+        toast({ title: 'Image upload failed', description: err.message, variant: 'destructive' });
+        return;
+      }
+    }
     navigate('/launch', {
-      state: { prefill: { name, description: lore, imageUrl: generatedImage } },
+      state: { prefill: { name, description: lore, imageUrl } },
     });
   };
 
@@ -287,6 +318,50 @@ const CreateCharacter = () => {
                   className="flex items-center gap-2 px-4 py-2 border border-dashed border-border rounded-lg text-xs text-muted-foreground hover:border-primary/30 transition-colors"
                 >
                   <ImagePlus className="h-4 w-4" /> Add inspiration image
+                </button>
+              )}
+            </div>
+
+            {/* OR divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-xs text-muted-foreground font-mono">OR</span>
+              <div className="flex-1 border-t border-border" />
+            </div>
+
+            {/* Upload your own image */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-2 block">Upload Your Own Image</label>
+              <input
+                type="file"
+                ref={customImageInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setCustomImageFile(file);
+                    setCustomImagePreview(URL.createObjectURL(file));
+                    setGeneratedImage(null);
+                  }
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+              {customImagePreview ? (
+                <div className="relative inline-block">
+                  <img src={customImagePreview} alt="Your image" className="w-32 h-32 rounded-lg object-cover border border-border" />
+                  <button
+                    onClick={() => { setCustomImageFile(null); setCustomImagePreview(null); }}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => customImageInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg text-xs text-muted-foreground hover:border-primary/30 transition-colors w-full justify-center"
+                >
+                  <Upload className="h-4 w-4" /> Upload your own character image
                 </button>
               )}
             </div>
@@ -425,8 +500,8 @@ const CreateCharacter = () => {
         </div>
 
         {/* Validation hints */}
-        {!generatedImage && (
-          <p className="text-xs text-destructive font-mono">Generate a character image above first</p>
+        {!activeImage && (
+          <p className="text-xs text-destructive font-mono">Generate or upload a character image above first</p>
         )}
 
         <div className="flex gap-3">
