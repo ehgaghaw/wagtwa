@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Search, Flame, Clock, TrendingUp, BarChart3, GraduationCap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import CoinCard from '@/components/CoinCard';
-import { mockCoins } from '@/data/mockData';
+import UniverseFilter from '@/components/UniverseFilter';
+import { mockCoins, type BrainrotUniverse } from '@/data/mockData';
 
 type Filter = 'trending' | 'new' | 'gainers' | 'volume' | 'graduating';
 
@@ -17,8 +18,10 @@ const filters: { key: Filter; label: string; icon: React.ComponentType<{ classNa
 const Explore = () => {
   const [filter, setFilter] = useState<Filter>('trending');
   const [search, setSearch] = useState('');
+  const [universe, setUniverse] = useState<BrainrotUniverse>('All');
 
   const filtered = mockCoins
+    .filter(c => universe === 'All' || c.universe === universe)
     .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.ticker.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       switch (filter) {
@@ -32,6 +35,12 @@ const Explore = () => {
 
   return (
     <div className="container py-6">
+      {/* Universe Filter */}
+      <div className="mb-4">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">Brainrot Universes</p>
+        <UniverseFilter selected={universe} onChange={setUniverse} />
+      </div>
+
       <div className="flex flex-col md:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -3,7 +3,7 @@ import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, Al
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { brainrotCharacters } from '@/data/mockData';
+import { brainrotCharacters, BRAINROT_UNIVERSES, type BrainrotUniverse } from '@/data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
@@ -13,7 +13,7 @@ import { toast } from '@/hooks/use-toast';
 const LaunchCoin = () => {
   const [step, setStep] = useState(1);
   const [selectedChar, setSelectedChar] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', ticker: '', description: '', initialBuy: '0', twitter: '', telegram: '', website: '' });
+  const [form, setForm] = useState({ name: '', ticker: '', description: '', initialBuy: '0', twitter: '', telegram: '', website: '', universe: 'Italian Brainrot' as BrainrotUniverse });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
@@ -140,6 +140,18 @@ const LaunchCoin = () => {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Description</label>
                 <Textarea className="bg-muted border-border" placeholder="What's the lore?" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Brainrot Universe</label>
+                <select
+                  className="w-full bg-muted border border-border rounded-md px-3 py-2 text-sm text-foreground"
+                  value={form.universe}
+                  onChange={e => setForm(f => ({ ...f, universe: e.target.value as BrainrotUniverse }))}
+                >
+                  {BRAINROT_UNIVERSES.filter(u => u !== 'All').map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Coin Image / Logo</label>
