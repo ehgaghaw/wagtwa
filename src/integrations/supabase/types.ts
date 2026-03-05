@@ -41,6 +41,30 @@ export type Database = {
         }
         Relationships: []
       }
+      character_votes: {
+        Row: {
+          character_id: string
+          created_at: string
+          id: string
+          vote_type: string
+          wallet_address: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          id?: string
+          vote_type: string
+          wallet_address: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          id?: string
+          vote_type?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       video_comments: {
         Row: {
           content: string
