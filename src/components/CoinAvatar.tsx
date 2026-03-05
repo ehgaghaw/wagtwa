@@ -1,7 +1,12 @@
-import type { BrainrotCoin } from '@/data/mockData';
+interface CoinAvatarCoin {
+  name: string;
+  image: string;
+  avatarGradient: string;
+  avatarLetter: string;
+}
 
 interface CoinAvatarProps {
-  coin: BrainrotCoin;
+  coin: CoinAvatarCoin;
   size?: number;
 }
 
