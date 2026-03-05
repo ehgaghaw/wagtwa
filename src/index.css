@@ -123,6 +123,22 @@
   animation: marquee 30s linear infinite;
 }
 
+/* Wallet adapter overrides */
+.wallet-adapter-button {
+  background-color: hsl(0 0% 100%) !important;
+  color: hsl(0 0% 0%) !important;
+}
+.wallet-adapter-button:hover {
+  background-color: hsl(0 0% 85%) !important;
+}
+.wallet-adapter-button-trigger::before {
+  content: 'Connect Wallet';
+}
+.wallet-adapter-button-trigger .wallet-adapter-button-start-icon,
+.wallet-adapter-button-trigger > span {
+  display: none;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
