@@ -65,6 +65,42 @@ export type Database = {
         }
         Relationships: []
       }
+      characters: {
+        Row: {
+          created_at: string
+          downvotes: number
+          id: string
+          image_url: string
+          lore: string | null
+          name: string
+          tags: string[] | null
+          upvotes: number
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          downvotes?: number
+          id?: string
+          image_url: string
+          lore?: string | null
+          name: string
+          tags?: string[] | null
+          upvotes?: number
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          downvotes?: number
+          id?: string
+          image_url?: string
+          lore?: string | null
+          name?: string
+          tags?: string[] | null
+          upvotes?: number
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       video_comments: {
         Row: {
           content: string
