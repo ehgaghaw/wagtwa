@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, TrendingDown, Coins, RefreshCw, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Wallet, RefreshCw, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useWalletPortfolio } from '@/hooks/useWalletPortfolio';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -47,14 +47,9 @@ const Portfolio = () => {
 
       {/* SOL Balance Card */}
       <div className="bg-card border border-border rounded-md p-5 mb-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center font-bold text-foreground text-sm">
-            S
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">SOL Balance</p>
-            <p className="text-2xl font-bold font-mono-num text-foreground">{solBalance.toFixed(4)} SOL</p>
-          </div>
+        <div className="mb-4">
+          <p className="text-xs text-muted-foreground">SOL Balance</p>
+          <p className="text-2xl font-bold font-mono-num text-foreground">{solBalance.toFixed(4)} SOL</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-muted rounded-md p-3">
@@ -77,10 +72,7 @@ const Portfolio = () => {
 
       {/* Token Holdings */}
       <div className="mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Coins className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">Token Holdings</h2>
-        </div>
+        <h2 className="text-sm font-semibold mb-3">Token Holdings</h2>
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -101,14 +93,6 @@ const Portfolio = () => {
                 className="block bg-card border border-border rounded-md p-4 hover:border-muted-foreground/30 transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-foreground text-xs border border-border shrink-0"
-                    style={{
-                      background: `linear-gradient(135deg, hsl(${hashToHue(token.mint)} 60% 45%), hsl(${hashToHue(token.mint) + 40} 50% 55%))`,
-                    }}
-                  >
-                    {token.mint.slice(0, 2).toUpperCase()}
-                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-mono-num text-muted-foreground truncate">{shortenMint(token.mint)}</p>
                     <p className="text-sm font-semibold font-mono-num text-foreground">
@@ -127,14 +111,5 @@ const Portfolio = () => {
     </div>
   );
 };
-
-// Simple hash to generate a consistent hue from a mint address
-function hashToHue(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % 360;
-}
 
 export default Portfolio;
