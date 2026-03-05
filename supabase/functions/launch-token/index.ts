@@ -11,7 +11,7 @@ const corsHeaders = {
 
 const TRADE_API = "https://pumpportal.fun/api/trade-local";
 const IPFS_API = "https://pump.fun/api/ipfs";
-const RPC_URL = Deno.env.get("SOLANA_RPC_URL") || "https://rpc.ankr.com/solana";
+const RPC_URL = Deno.env.get("SOLANA_RPC_URL") || "https://api.mainnet-beta.solana.com";
 
 function errorResponse(message: string, status = 500) {
   return new Response(JSON.stringify({ error: message }), {

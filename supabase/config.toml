@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.launch-token]
 verify_jwt = false
+
+[functions.solana-relay]
+verify_jwt = false

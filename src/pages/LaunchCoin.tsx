@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,6 @@ import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Connection,
   PublicKey,
   Transaction,
   SystemProgram,
@@ -60,10 +59,6 @@ const LaunchCoin = () => {
   }, []);
 
   const wallet = useWallet();
-  const paymentConnection = useMemo(
-    () => new Connection(import.meta.env.VITE_SOLANA_PAYMENT_RPC_URL || 'https://rpc.ankr.com/solana', 'confirmed'),
-    []
-  );
   const devBuyAmount = Math.max(0, parseFloat(form.devBuy) || 0);
   const totalPayment = Number((LAUNCH_FEE_SOL + devBuyAmount).toFixed(4));
 
@@ -98,7 +93,7 @@ const LaunchCoin = () => {
   };
 
   const handlePayAndLaunch = async () => {
-    if (!wallet.connected || !wallet.publicKey || !wallet.sendTransaction) {
+    if (!wallet.connected || !wallet.publicKey || !wallet.signTransaction) {
       toast({ title: 'Connect your wallet first', variant: 'destructive' });
       return;
     }
@@ -131,20 +126,40 @@ const LaunchCoin = () => {
         })
       );
 
-      // Use wallet.sendTransaction which uses the wallet's own RPC
-      // This avoids 403 errors from the public Solana RPC
       let paymentSignature: string;
-      try {
-        paymentSignature = await wallet.sendTransaction(transaction, paymentConnection);
-      } catch (sendErr: any) {
-        throw new Error('Transaction failed: ' + (sendErr.message || 'Could not send transaction'));
+
+      // Get latest blockhash via backend relay to avoid browser RPC 403 errors
+      const { data: blockhashData, error: blockhashError } = await supabase.functions.invoke('solana-relay', {
+        body: { action: 'getLatestBlockhash' },
+      });
+
+      if (blockhashError || !blockhashData?.blockhash) {
+        throw new Error('Could not prepare payment transaction. Please try again.');
       }
 
-      try {
-        await paymentConnection.confirmTransaction(paymentSignature, 'confirmed');
-      } catch (confirmErr) {
-        console.warn('Could not confirm tx locally, backend will verify:', confirmErr);
+      transaction.recentBlockhash = blockhashData.blockhash;
+      transaction.feePayer = wallet.publicKey;
+
+      const signedTx = await wallet.signTransaction(transaction);
+      const txBytes = signedTx.serialize();
+      let binary = '';
+      txBytes.forEach((b) => {
+        binary += String.fromCharCode(b);
+      });
+      const serializedTransaction = btoa(binary);
+
+      const { data: relayData, error: relayError } = await supabase.functions.invoke('solana-relay', {
+        body: {
+          action: 'sendRawTransaction',
+          serializedTransaction,
+        },
+      });
+
+      if (relayError || !relayData?.signature) {
+        throw new Error(relayData?.error || relayError?.message || 'Payment transaction failed');
       }
+
+      paymentSignature = relayData.signature;
 
       toast({ title: 'Payment sent!', description: 'Creating your token...' });
       setLaunchStatus('creating');
