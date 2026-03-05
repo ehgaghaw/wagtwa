@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import UniverseFilter from '@/components/UniverseFilter';
 import { type BrainrotUniverse } from '@/data/mockData';
