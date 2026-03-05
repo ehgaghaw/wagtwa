@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ThumbsUp, ThumbsDown, Rocket, Plus } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Rocket, Plus, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BRAINROT_UNIVERSES, type BrainrotUniverse, type BrainrotCharacter } from '@/data/mockData';
 import { Link } from 'react-router-dom';
@@ -113,7 +113,7 @@ const Characters = () => {
         </div>
         <Link to="/create-character">
           <Button size="sm" className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 text-xs">
-            <Plus className="h-3 w-3 mr-1" /> Create
+            <Plus className="h-3 w-3 mr-1" /> Create <ArrowRight className="h-3 w-3 ml-1" />
           </Button>
         </Link>
       </div>

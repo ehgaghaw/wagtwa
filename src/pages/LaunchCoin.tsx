@@ -99,14 +99,16 @@ const LaunchCoin = () => {
                 />
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer max-w-xs mx-auto"
+                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer w-[512px] h-[512px] max-w-full flex flex-col items-center justify-center"
                 >
                   {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="w-16 h-16 mx-auto rounded-lg object-cover mb-2" />
+                    <img src={imagePreview} alt="Preview" className="w-full h-full rounded-lg object-cover" />
                   ) : (
-                    <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
+                    <>
+                      <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                      <p className="text-xs text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload'}</p>
+                    </>
                   )}
-                  <p className="text-xs text-muted-foreground">{imageFile ? imageFile.name : 'Click to upload'}</p>
                 </div>
               </div>
 
@@ -115,8 +117,8 @@ const LaunchCoin = () => {
                 <Input className="bg-muted border-border" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Ticker Symbol (max 8 chars)</label>
-                <Input className="bg-muted border-border" maxLength={8} placeholder="e.g. TUNG" value={form.ticker} onChange={e => setForm(f => ({ ...f, ticker: e.target.value.toUpperCase() }))} />
+                <label className="text-xs text-muted-foreground mb-1 block">Ticker Symbol (max 10 chars)</label>
+                <Input className="bg-muted border-border" maxLength={10} placeholder="e.g. TUNG" value={form.ticker} onChange={e => setForm(f => ({ ...f, ticker: e.target.value.toUpperCase() }))} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Description</label>
