@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import BondingCurveBar from './BondingCurveBar';
 import type { BrainrotCoin } from '@/data/mockData';
 import { motion } from 'framer-motion';
 
@@ -13,47 +11,59 @@ const formatNum = (n: number) => {
 
 const CoinCard = ({ coin }: { coin: BrainrotCoin }) => (
   <motion.div
-    whileHover={{ y: -4 }}
-    transition={{ duration: 0.2 }}
+    whileHover={{ y: -4, scale: 1.02 }}
+    transition={{ duration: 0.25, ease: 'easeOut' }}
   >
     <Link
       to={`/coin/${coin.id}`}
-      className="block bg-card border border-border rounded-lg p-4 card-hover group"
+      className="block glass-card rounded-xl p-5 group transition-all duration-300"
     >
-      <div className="flex items-start gap-3 mb-3">
-        <div className="text-4xl">{coin.image}</div>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="text-3xl w-12 h-12 flex items-center justify-center rounded-lg bg-muted/50">{coin.image}</div>
         <div className="flex-1 min-w-0">
           <h3 className="font-display text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">
             {coin.name}
           </h3>
-          <p className="text-xs text-muted-foreground font-mono">${coin.ticker}</p>
+          <p className="text-xs text-muted-foreground">${coin.ticker}</p>
         </div>
-        <div className={`flex items-center gap-1 text-xs font-mono font-bold ${
-          coin.priceChange24h >= 0 ? 'text-primary' : 'text-destructive'
+        <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
+          coin.priceChange24h >= 0 
+            ? 'text-emerald-400 bg-emerald-400/10' 
+            : 'text-red-400 bg-red-400/10'
         }`}>
           {coin.priceChange24h >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
           {coin.priceChange24h >= 0 ? '+' : ''}{coin.priceChange24h.toFixed(1)}%
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mb-3">
-        <div><span className="block text-foreground font-mono">${coin.price.toFixed(6)}</span>Price</div>
-        <div><span className="block text-foreground font-mono">{formatNum(coin.marketCap)}</span>MCap</div>
-        <div><span className="block text-foreground font-mono">{formatNum(coin.volume24h)}</span>24h Vol</div>
-      </div>
-      <div className="mb-3">
-        <div className="flex justify-between text-xs text-muted-foreground mb-1">
-          <span>Bonding Curve</span>
-          <span className="text-foreground font-mono">{coin.bondingProgress}%</span>
+      <div className="grid grid-cols-3 gap-3 text-xs mb-4">
+        <div>
+          <span className="text-muted-foreground block mb-0.5">Price</span>
+          <span className="text-foreground font-semibold">${coin.price.toFixed(6)}</span>
         </div>
-        <BondingCurveBar progress={coin.bondingProgress} />
+        <div>
+          <span className="text-muted-foreground block mb-0.5">MCap</span>
+          <span className="text-foreground font-semibold">{formatNum(coin.marketCap)}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground block mb-0.5">Volume</span>
+          <span className="text-foreground font-semibold">{formatNum(coin.volume24h)}</span>
+        </div>
       </div>
-      <Button
-        size="sm"
-        className="w-full bg-primary text-primary-foreground font-display text-xs font-bold hover:bg-primary/90"
-        onClick={(e) => { e.preventDefault(); }}
-      >
-        BUY ${coin.ticker}
-      </Button>
+      <div>
+        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+          <span>Bonding Curve</span>
+          <span className="text-foreground font-semibold">{coin.bondingProgress}%</span>
+        </div>
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div 
+            className="h-full rounded-full transition-all duration-500"
+            style={{ 
+              width: `${coin.bondingProgress}%`,
+              background: 'linear-gradient(90deg, hsl(330 85% 60%), hsl(270 70% 55%))'
+            }} 
+          />
+        </div>
+      </div>
     </Link>
   </motion.div>
 );

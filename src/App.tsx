@@ -25,7 +25,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="min-h-screen flex flex-col grain-overlay">
+          <div className="min-h-screen flex flex-col">
             <Header />
             <TickerBar />
             <main className="flex-1">
