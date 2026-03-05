@@ -1,9 +1,54 @@
-import { mockCoins } from '@/data/mockData';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import CoinAvatar from './CoinAvatar';
 
+interface TickerCoin {
+  id: string;
+  name: string;
+  ticker: string;
+  image: string;
+  avatarGradient: string;
+  avatarLetter: string;
+}
+
 const TickerBar = () => {
-  const items = [...mockCoins, ...mockCoins];
+  const [coins, setCoins] = useState<TickerCoin[]>([]);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase
+        .from('launched_coins')
+        .select('id, name, ticker, image_url')
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setCoins(data.map(c => ({
+          id: c.id,
+          name: c.name,
+          ticker: c.ticker,
+          image: c.image_url || '',
+          avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
+          avatarLetter: c.name.charAt(0).toUpperCase(),
+        })));
+      }
+    };
+
+    fetch();
+
+    const channel = supabase
+      .channel('ticker-launched-coins')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'launched_coins' }, () => {
+        fetch();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  if (coins.length === 0) return null;
+
+  const items = [...coins, ...coins];
+
   return (
     <div className="border-b border-border bg-card overflow-hidden">
       <div className="flex animate-marquee whitespace-nowrap py-1.5">
@@ -11,13 +56,6 @@ const TickerBar = () => {
           <div key={`${coin.id}-${i}`} className="flex items-center gap-1.5 mx-5 text-xs">
             <CoinAvatar coin={coin} size={16} />
             <span className="text-foreground font-medium">${coin.ticker}</span>
-            <span className="text-muted-foreground font-mono-num">${coin.price.toFixed(6)}</span>
-            <span className={`flex items-center gap-0.5 font-bold font-mono-num ${
-              coin.priceChange24h >= 0 ? 'text-positive' : 'text-negative'
-            }`}>
-              {coin.priceChange24h >= 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-              {coin.priceChange24h >= 0 ? '+' : ''}{coin.priceChange24h.toFixed(1)}%
-            </span>
           </div>
         ))}
       </div>

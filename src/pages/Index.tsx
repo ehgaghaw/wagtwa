@@ -2,11 +2,55 @@ import { Link } from 'react-router-dom';
 import { Rocket, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
-import { mockCoins } from '@/data/mockData';
+import { BrainrotCoin } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
 import rotLogoAnim from '@/assets/rot-logo-anim.webm';
 
 const Index = () => {
-  const trending = [...mockCoins].sort((a, b) => b.volume24h - a.volume24h);
+  const [coins, setCoins] = useState<BrainrotCoin[]>([]);
+
+  useEffect(() => {
+    const fetchCoins = async () => {
+      const { data } = await supabase
+        .from('launched_coins')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setCoins(data.map(c => ({
+          id: c.id,
+          name: c.name,
+          ticker: c.ticker,
+          description: c.description || '',
+          image: c.image_url || '',
+          avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
+          avatarLetter: c.name.charAt(0).toUpperCase(),
+          price: 0,
+          priceChange24h: 0,
+          marketCap: 0,
+          volume24h: 0,
+          bondingProgress: 0,
+          creator: c.wallet_address,
+          createdAt: new Date(c.created_at).toLocaleDateString(),
+          holders: 0,
+          tags: [],
+          universe: c.universe as any,
+        })));
+      }
+    };
+
+    fetchCoins();
+
+    const channel = supabase
+      .channel('index-launched-coins')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'launched_coins' }, () => {
+        fetchCoins();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   return (
     <div>
@@ -49,11 +93,22 @@ const Index = () => {
               View All <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {trending.map(coin => (
-              <CoinCard key={coin.id} coin={coin} />
-            ))}
-          </div>
+          {coins.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="text-sm">No coins launched yet. Be the first!</p>
+              <Link to="/launch">
+                <Button variant="outline" className="mt-4">
+                  <Rocket className="mr-2 h-4 w-4" /> Launch a Coin
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {coins.map(coin => (
+                <CoinCard key={coin.id} coin={coin} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
