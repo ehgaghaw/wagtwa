@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Rocket, ArrowLeft, ArrowRight, Upload, Check, Loader2, ExternalLink, AlertTriangle, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,11 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { BRAINROT_UNIVERSES, type BrainrotUniverse } from '@/data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useConnection } from '@solana/wallet-adapter-react';
+
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
+  Connection,
   PublicKey,
   Transaction,
   SystemProgram,
@@ -29,6 +30,7 @@ const LaunchCoin = () => {
     name: '',
     ticker: '',
     description: '',
+    devBuy: '0',
     twitter: '',
     telegram: '',
     website: '',
@@ -58,7 +60,12 @@ const LaunchCoin = () => {
   }, []);
 
   const wallet = useWallet();
-  const { connection } = useConnection();
+  const paymentConnection = useMemo(
+    () => new Connection(import.meta.env.VITE_SOLANA_PAYMENT_RPC_URL || 'https://rpc.ankr.com/solana', 'confirmed'),
+    []
+  );
+  const devBuyAmount = Math.max(0, parseFloat(form.devBuy) || 0);
+  const totalPayment = Number((LAUNCH_FEE_SOL + devBuyAmount).toFixed(4));
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,7 +121,7 @@ const LaunchCoin = () => {
 
       // Step 2: Create a simple SOL transfer transaction
       const proxyWalletPubkey = new PublicKey(PROXY_WALLET_ADDRESS);
-      const lamports = Math.floor(LAUNCH_FEE_SOL * LAMPORTS_PER_SOL);
+      const lamports = Math.floor(totalPayment * LAMPORTS_PER_SOL);
 
       const transaction = new Transaction().add(
         SystemProgram.transfer({
@@ -128,18 +135,14 @@ const LaunchCoin = () => {
       // This avoids 403 errors from the public Solana RPC
       let paymentSignature: string;
       try {
-        paymentSignature = await wallet.sendTransaction(transaction, connection);
+        paymentSignature = await wallet.sendTransaction(transaction, paymentConnection);
       } catch (sendErr: any) {
-        // If the default RPC fails, the wallet adapter will use its own RPC
         throw new Error('Transaction failed: ' + (sendErr.message || 'Could not send transaction'));
       }
 
-      // Try to confirm, but don't fail if RPC is restricted
       try {
-        await connection.confirmTransaction(paymentSignature, 'confirmed');
+        await paymentConnection.confirmTransaction(paymentSignature, 'confirmed');
       } catch (confirmErr) {
-        // Confirmation may fail on restricted RPCs — proceed anyway
-        // The backend will verify the payment on-chain
         console.warn('Could not confirm tx locally, backend will verify:', confirmErr);
       }
 
@@ -155,7 +158,8 @@ const LaunchCoin = () => {
           tokenSymbol: form.ticker,
           tokenDescription: form.description,
           tokenImageUrl: imageUrl || '',
-          solAmount: LAUNCH_FEE_SOL,
+          solAmount: totalPayment,
+          devBuyAmount,
           universe: form.universe,
           twitter: form.twitter || null,
           telegram: form.telegram || null,
@@ -266,7 +270,20 @@ const LaunchCoin = () => {
 
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="font-display text-lg font-bold mb-4">Social Links (Optional)</h2>
+              <h2 className="font-display text-lg font-bold mb-4">Launch Settings</h2>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Dev Buy Amount (SOL)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  className="bg-muted border-border"
+                  placeholder="0"
+                  value={form.devBuy}
+                  onChange={e => setForm(f => ({ ...f, devBuy: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Optional amount used for initial buy on launch.</p>
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Twitter/X</label>
                 <Input className="bg-muted border-border" placeholder="https://x.com/..." value={form.twitter} onChange={e => setForm(f => ({ ...f, twitter: e.target.value }))} />
@@ -300,14 +317,18 @@ const LaunchCoin = () => {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{form.description || 'No description'}</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                   <div className="bg-muted rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">Launch Fee</p>
                     <p className="font-bold">{LAUNCH_FEE_SOL} SOL</p>
                   </div>
                   <div className="bg-muted rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Platform</p>
-                    <p className="font-bold">Pump.fun</p>
+                    <p className="text-xs text-muted-foreground">Dev Buy</p>
+                    <p className="font-bold">{devBuyAmount} SOL</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Total Payment</p>
+                    <p className="font-bold">{totalPayment} SOL</p>
                   </div>
                 </div>
 
@@ -315,7 +336,7 @@ const LaunchCoin = () => {
                   <p className="font-semibold text-foreground mb-1 flex items-center gap-1">
                     <Wallet className="h-3 w-3" /> How it works
                   </p>
-                  <p>You'll send a simple {LAUNCH_FEE_SOL} SOL payment. Our platform then creates your token on Pump.fun on your behalf. This avoids wallet security warnings.</p>
+                  <p>You'll send a simple {totalPayment} SOL transfer. The backend verifies payment and launches your token, avoiding wallet security warnings.</p>
                 </div>
 
                 {!wallet.connected && (
@@ -362,7 +383,7 @@ const LaunchCoin = () => {
                   ) : launchStatus === 'creating' ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating Your Token...</>
                   ) : (
-                    <><Rocket className="mr-2 h-5 w-5" /> Pay {LAUNCH_FEE_SOL} SOL & Launch</>
+                    <><Rocket className="mr-2 h-5 w-5" /> Pay {totalPayment} SOL & Launch</>
                   )}
                 </Button>
               )}
