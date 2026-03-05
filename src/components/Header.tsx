@@ -2,9 +2,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import rotLogo from '@/assets/rot-logo.png';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+
+const shortenAddress = (addr: string) => `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 
 const navLinks = [
   { path: '/', label: 'Home' },
@@ -18,6 +21,16 @@ const navLinks = [
 const Header = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { publicKey, connected, disconnect } = useWallet();
+  const { setVisible } = useWalletModal();
+
+  const handleWalletClick = useCallback(() => {
+    if (connected) {
+      disconnect();
+    } else {
+      setVisible(true);
+    }
+  }, [connected, disconnect, setVisible]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
@@ -53,9 +66,12 @@ const Header = () => {
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
             </svg>
           </a>
-          <WalletMultiButton className="!bg-foreground !text-background hover:!bg-foreground/80 !text-xs !font-semibold !rounded !h-7 !px-2.5 !py-0 !min-w-0">
-            {/* The adapter automatically shows the shortened address when connected */}
-          </WalletMultiButton>
+          <button
+            onClick={handleWalletClick}
+            className="bg-foreground text-background hover:bg-foreground/80 text-xs font-semibold rounded h-7 px-2.5 min-w-0 inline-flex items-center"
+          >
+            {connected && publicKey ? shortenAddress(publicKey.toBase58()) : 'Connect Wallet'}
+          </button>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden text-muted-foreground h-8 w-8">
