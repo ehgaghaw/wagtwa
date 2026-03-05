@@ -20,7 +20,7 @@ const Index = () => {
           playsInline
           className="h-24 md:h-32 w-auto mx-auto mb-6"
         />
-        <h1 className="text-3xl md:text-5xl font-bold mb-3 text-foreground">
+        <h1 className="text-3xl md:text-5xl font-bold mb-3 glitch-rainbow">
           The Brainrot Launchpad
         </h1>
         <p className="text-sm md:text-base text-muted-foreground mb-8 max-w-md mx-auto">
