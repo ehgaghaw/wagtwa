@@ -1,10 +1,15 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Share2, ExternalLink, Send } from 'lucide-react';
+import { ArrowLeft, Share2, ExternalLink, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import BondingCurveBar from '@/components/BondingCurveBar';
-import { mockCoins, mockTrades, mockChat, mockCandlestickData } from '@/data/mockData';
+import { mockCoins, mockTrades, mockChat } from '@/data/mockData';
 import { useState } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { tradeToken } from '@/services/pumpPortal';
+import { useTokenTrades } from '@/hooks/useTokenTrades';
+import { toast } from '@/hooks/use-toast';
 
 const CoinDetail = () => {
   const { id } = useParams();
@@ -12,6 +17,13 @@ const CoinDetail = () => {
   const [buyAmount, setBuyAmount] = useState('');
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [chatMsg, setChatMsg] = useState('');
+  const [isTrading, setIsTrading] = useState(false);
+  const [selectedSlippage, setSelectedSlippage] = useState('10');
+  const wallet = useWallet();
+  const { connection } = useConnection();
+
+  // Real-time trades via WebSocket (using coin id as mock mint — in production use real mint address)
+  const liveTrades = useTokenTrades(coin?.id);
 
   if (!coin) return (
     <div className="container py-20 text-center text-muted-foreground font-mono">
@@ -20,6 +32,47 @@ const CoinDetail = () => {
   );
 
   const formatNum = (n: number) => n >= 1e6 ? `$${(n/1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n/1e3).toFixed(1)}K` : `$${n}`;
+
+  const handleTrade = async () => {
+    if (!wallet.connected || !wallet.publicKey) {
+      toast({ title: 'Connect your wallet first', variant: 'destructive' });
+      return;
+    }
+    if (!buyAmount || parseFloat(buyAmount) <= 0) {
+      toast({ title: 'Enter a valid amount', variant: 'destructive' });
+      return;
+    }
+
+    setIsTrading(true);
+    try {
+      const signature = await tradeToken(wallet, connection, {
+        action: activeTab,
+        mint: coin.id, // In production, this would be the real token mint address
+        amount: parseFloat(buyAmount),
+        denominatedInSol: activeTab === 'buy',
+        slippage: parseFloat(selectedSlippage),
+      });
+
+      toast({
+        title: `${activeTab === 'buy' ? '🟢 Buy' : '🔴 Sell'} successful!`,
+        description: (
+          <a
+            href={`https://solscan.io/tx/${signature}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            View on Solscan →
+          </a>
+        ),
+      });
+      setBuyAmount('');
+    } catch (err: any) {
+      toast({ title: 'Trade failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsTrading(false);
+    }
+  };
 
   return (
     <div className="container py-8">
@@ -44,28 +97,15 @@ const CoinDetail = () => {
             </Button>
           </div>
 
-          {/* Mock Chart */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="font-display text-sm font-bold mb-4">Price Chart</h3>
-            <div className="h-64 flex items-end gap-0.5">
-              {mockCandlestickData.map((d, i) => {
-                const isGreen = d.close >= d.open;
-                const bodyHeight = Math.abs(d.close - d.open) * 80000;
-                const wickHeight = (d.high - d.low) * 80000;
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center justify-end" style={{ height: '100%' }}>
-                    <div
-                      className={`w-px ${isGreen ? 'bg-primary/40' : 'bg-destructive/40'}`}
-                      style={{ height: `${Math.max(wickHeight, 2)}px` }}
-                    />
-                    <div
-                      className={`w-full rounded-sm ${isGreen ? 'bg-primary' : 'bg-destructive'}`}
-                      style={{ height: `${Math.max(bodyHeight, 2)}px`, minHeight: '2px' }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+          {/* DexScreener Chart */}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <h3 className="font-display text-sm font-bold p-4 pb-0">Price Chart</h3>
+            <iframe
+              src={`https://dexscreener.com/solana/${coin.id}?embed=1&theme=dark`}
+              className="w-full h-[400px] border-0"
+              title="DexScreener Chart"
+              allow="clipboard-write"
+            />
           </div>
 
           {/* Stats */}
@@ -95,7 +135,30 @@ const CoinDetail = () => {
             </p>
           </div>
 
-          {/* Trades */}
+          {/* Live Trades */}
+          {liveTrades.length > 0 && (
+            <div className="bg-card border border-primary/20 rounded-lg p-4">
+              <h3 className="font-display text-sm font-bold mb-3 text-primary">⚡ Live Trades</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {liveTrades.map(t => (
+                  <div key={t.signature} className="flex items-center justify-between text-xs font-mono py-1 border-b border-border/50">
+                    <span className={t.txType === 'buy' ? 'text-primary' : 'text-destructive'}>{t.txType.toUpperCase()}</span>
+                    <span className="text-muted-foreground">{t.solAmount?.toFixed(4)} SOL</span>
+                    <a
+                      href={`https://solscan.io/tx/${t.signature}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {t.signature.slice(0, 8)}...
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mock Trades */}
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="font-display text-sm font-bold mb-3">Recent Trades</h3>
             <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -158,7 +221,9 @@ const CoinDetail = () => {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Amount (SOL)</label>
+                <label className="text-xs text-muted-foreground mb-1 block">
+                  Amount ({activeTab === 'buy' ? 'SOL' : coin.ticker})
+                </label>
                 <Input
                   type="number"
                   placeholder="0.0"
@@ -168,10 +233,10 @@ const CoinDetail = () => {
                 />
               </div>
               <div className="flex gap-2">
-                {['0.1', '0.5', '1', '5'].map(v => (
+                {(activeTab === 'buy' ? ['0.1', '0.5', '1', '5'] : ['25%', '50%', '75%', '100%']).map(v => (
                   <button
                     key={v}
-                    onClick={() => setBuyAmount(v)}
+                    onClick={() => setBuyAmount(v.replace('%', ''))}
                     className="flex-1 py-1 text-xs font-mono bg-muted hover:bg-muted/80 rounded border border-border transition-colors"
                   >
                     {v}
@@ -181,29 +246,45 @@ const CoinDetail = () => {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Slippage</label>
                 <div className="flex gap-2">
-                  {['0.5%', '1%', '3%', '5%'].map(s => (
+                  {['1', '5', '10', '20'].map(s => (
                     <button
                       key={s}
-                      className="flex-1 py-1 text-xs font-mono bg-muted hover:bg-muted/80 rounded border border-border transition-colors"
+                      onClick={() => setSelectedSlippage(s)}
+                      className={`flex-1 py-1 text-xs font-mono rounded border transition-colors ${
+                        selectedSlippage === s
+                          ? 'bg-primary/20 border-primary text-primary'
+                          : 'bg-muted hover:bg-muted/80 border-border'
+                      }`}
                     >
-                      {s}
+                      {s}%
                     </button>
                   ))}
                 </div>
               </div>
-              {buyAmount && (
+              {buyAmount && activeTab === 'buy' && (
                 <div className="text-xs text-muted-foreground font-mono">
                   Est. output: ~{(parseFloat(buyAmount || '0') / coin.price).toLocaleString()} ${coin.ticker}
                 </div>
               )}
+
+              {!wallet.connected && (
+                <p className="text-xs text-destructive font-mono text-center">⚠️ Connect wallet to trade</p>
+              )}
+
               <Button
+                onClick={handleTrade}
+                disabled={isTrading || !wallet.connected || !buyAmount}
                 className={`w-full font-display font-bold ${
                   activeTab === 'buy'
                     ? 'bg-primary text-primary-foreground hover:bg-primary/90 box-glow-green'
                     : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                }`}
+                } disabled:opacity-50`}
               >
-                {activeTab === 'buy' ? `Buy $${coin.ticker}` : `Sell $${coin.ticker}`}
+                {isTrading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+                ) : (
+                  activeTab === 'buy' ? `Buy $${coin.ticker}` : `Sell $${coin.ticker}`
+                )}
               </Button>
             </div>
 
