@@ -10,6 +10,7 @@ import { useConnection } from '@solana/wallet-adapter-react';
 import { createToken, type TokenMetadataInput } from '@/services/pumpPortal';
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const LaunchCoin = () => {
   const location = useLocation();
@@ -72,6 +73,23 @@ const LaunchCoin = () => {
 
       const result = await createToken(wallet, connection, meta, parseFloat(form.initialBuy) || 0);
       setLaunchResult(result);
+
+      // Save to database
+      await supabase.from('launched_coins' as any).insert({
+        wallet_address: wallet.publicKey.toBase58(),
+        name: form.name,
+        ticker: form.ticker,
+        description: form.description,
+        image_url: imagePreview || '',
+        universe: form.universe,
+        mint_address: result.mintAddress,
+        signature: result.signature,
+        twitter: form.twitter || null,
+        telegram: form.telegram || null,
+        website: form.website || null,
+        initial_buy: parseFloat(form.initialBuy) || 0,
+      });
+
       toast({ title: 'Token launched successfully!', description: `Mint: ${result.mintAddress.slice(0, 8)}...` });
     } catch (err: any) {
       toast({ title: 'Launch failed', description: err.message, variant: 'destructive' });
@@ -174,7 +192,7 @@ const LaunchCoin = () => {
                 <Input className="bg-muted border-border" placeholder="https://t.me/..." value={form.telegram} onChange={e => setForm(f => ({ ...f, telegram: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Website (optional)</label>
+                <label className="text-xs text-muted-foreground mb-1 block">TikTok / Website (optional)</label>
                 <Input className="bg-muted border-border" placeholder="https://..." value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} />
               </div>
             </div>
