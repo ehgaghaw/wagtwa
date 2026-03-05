@@ -104,6 +104,57 @@ export type Database = {
         }
         Relationships: []
       }
+      launched_coins: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          initial_buy: number | null
+          mint_address: string | null
+          name: string
+          signature: string | null
+          telegram: string | null
+          ticker: string
+          twitter: string | null
+          universe: string
+          wallet_address: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          initial_buy?: number | null
+          mint_address?: string | null
+          name: string
+          signature?: string | null
+          telegram?: string | null
+          ticker: string
+          twitter?: string | null
+          universe?: string
+          wallet_address: string
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          initial_buy?: number | null
+          mint_address?: string | null
+          name?: string
+          signature?: string | null
+          telegram?: string | null
+          ticker?: string
+          twitter?: string | null
+          universe?: string
+          wallet_address?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       video_comments: {
         Row: {
           content: string
