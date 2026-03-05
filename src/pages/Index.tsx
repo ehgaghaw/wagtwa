@@ -4,8 +4,7 @@ import { Rocket, Flame, Clock, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CoinCard from '@/components/CoinCard';
 import { mockCoins } from '@/data/mockData';
-import heroBg from '@/assets/hero-bg.jpg';
-import rotLogo from '@/assets/rot-logo.png';
+import rotLogoAnim from '@/assets/rot-logo-anim.mp4';
 
 const Index = () => {
   const trending = [...mockCoins].sort((a, b) => b.volume24h - a.volume24h).slice(0, 4);
@@ -14,15 +13,7 @@ const Index = () => {
   return (
     <div>
       {/* Hero */}
-      <section
-        className="relative overflow-hidden border-b border-border"
-        style={{
-          backgroundImage: `url(${heroBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
+      <section className="relative overflow-hidden border-b border-border bg-background">
         <div className="relative container py-24 md:py-32 text-center">
           <motion.div
             className="relative inline-block mb-6"
@@ -30,46 +21,15 @@ const Index = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            <motion.img
-              src={rotLogo}
-              alt="ROT"
+            <video
+              src={rotLogoAnim}
+              autoPlay
+              loop
+              muted
+              playsInline
               className="h-40 md:h-56 lg:h-64 w-auto mx-auto drop-shadow-[0_0_40px_hsl(120,100%,50%,0.3)]"
-              animate={{
-                filter: [
-                  'drop-shadow(0 0 20px hsl(120,100%,50%,0.3))',
-                  'drop-shadow(0 0 40px hsl(120,100%,50%,0.5))',
-                  'drop-shadow(0 0 20px hsl(120,100%,50%,0.3))',
-                ],
-                y: [0, 3, 0],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
+              style={{ background: 'transparent' }}
             />
-            {/* Melting drip elements */}
-            {[0, 1, 2, 3, 4].map((i) => (
-              <motion.div
-                key={i}
-                className="absolute bottom-0 rounded-full bg-gradient-to-b from-foreground/20 to-transparent"
-                style={{
-                  left: `${15 + i * 18}%`,
-                  width: `${4 + (i % 3) * 2}px`,
-                }}
-                animate={{
-                  height: ['0px', `${16 + (i % 3) * 12}px`, '0px'],
-                  opacity: [0, 0.6, 0],
-                  y: [0, 12 + i * 4, 24 + i * 4],
-                }}
-                transition={{
-                  duration: 2.5 + i * 0.4,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                  delay: i * 0.6,
-                }}
-              />
-            ))}
           </motion.div>
           <motion.p
             className="text-lg md:text-xl text-muted-foreground font-mono mb-8 max-w-2xl mx-auto"
