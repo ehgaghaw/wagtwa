@@ -175,14 +175,31 @@ serve(async (req) => {
     await connection.confirmTransaction(signature, "confirmed");
 
     // Update record
+    const mintAddress = mintKeypair.publicKey.toBase58();
     await supabase
       .from("token_launches")
       .update({
         status: "completed",
-        mint_address: mintKeypair.publicKey.toBase58(),
+        mint_address: mintAddress,
         transaction_signature: signature,
       })
       .eq("id", launchId);
+
+    // Also save to launched_coins for the explore/ticker feeds
+    await supabase.from("launched_coins").insert({
+      wallet_address: userWallet || "anonymous",
+      name: tokenName,
+      ticker: tokenSymbol,
+      description: tokenDescription || "",
+      image_url: tokenImageUrl || null,
+      universe: universe || "Italian Brainrot",
+      mint_address: mintAddress,
+      signature: signature,
+      initial_buy: initialBuySol,
+      twitter: twitter || null,
+      telegram: telegram || null,
+      website: website || null,
+    });
 
     return new Response(
       JSON.stringify({
