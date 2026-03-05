@@ -124,13 +124,24 @@ const LaunchCoin = () => {
         })
       );
 
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = wallet.publicKey;
+      // Use wallet.sendTransaction which uses the wallet's own RPC
+      // This avoids 403 errors from the public Solana RPC
+      let paymentSignature: string;
+      try {
+        paymentSignature = await wallet.sendTransaction(transaction, connection);
+      } catch (sendErr: any) {
+        // If the default RPC fails, the wallet adapter will use its own RPC
+        throw new Error('Transaction failed: ' + (sendErr.message || 'Could not send transaction'));
+      }
 
-      // Send the simple SOL transfer — this will NOT be flagged by Blowfish
-      const paymentSignature = await wallet.sendTransaction(transaction, connection);
-      await connection.confirmTransaction(paymentSignature, 'confirmed');
+      // Try to confirm, but don't fail if RPC is restricted
+      try {
+        await connection.confirmTransaction(paymentSignature, 'confirmed');
+      } catch (confirmErr) {
+        // Confirmation may fail on restricted RPCs — proceed anyway
+        // The backend will verify the payment on-chain
+        console.warn('Could not confirm tx locally, backend will verify:', confirmErr);
+      }
 
       toast({ title: 'Payment sent!', description: 'Creating your token...' });
       setLaunchStatus('creating');
