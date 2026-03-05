@@ -99,7 +99,7 @@ const LaunchCoin = () => {
                 />
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer w-[512px] h-[512px] max-w-full flex flex-col items-center justify-center"
+                  className="border-2 border-dashed border-border rounded-xl p-4 text-center bg-muted/30 hover:border-primary/30 transition-colors cursor-pointer w-32 h-32 flex flex-col items-center justify-center"
                 >
                   {imagePreview ? (
                     <img src={imagePreview} alt="Preview" className="w-full h-full rounded-lg object-cover" />
