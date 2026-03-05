@@ -288,7 +288,7 @@ const CreateCharacter = () => {
 
             {/* Inspiration image upload */}
             <div>
-              <label className="text-xs text-muted-foreground mb-2 block">Reference / Inspiration Image (optional)</label>
+              <label className="text-xs text-muted-foreground mb-2 block">Reference / Inspiration Image (recommended)</label>
               <input
                 type="file"
                 ref={inspirationInputRef}
