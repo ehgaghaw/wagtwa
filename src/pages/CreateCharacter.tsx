@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Clock, ImagePlus, X } from 'lucide-react';
+import { Sparkles, Brain, RefreshCw, Rocket, ArrowDown, Wallet, Clock, ImagePlus, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
-const tags = ['cursed', 'wholesome rot', 'sigma', 'NPC', 'cooked'];
+const presetTags = ['cursed', 'wholesome rot', 'sigma', 'NPC', 'cooked'];
 
 const placeholderPrompts = [
   'angry tung tung with sunglasses...',
@@ -34,6 +34,7 @@ const CreateCharacter = () => {
   const [name, setName] = useState('');
   const [lore, setLore] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState('');
 
   // Inspiration image
   const [inspirationImage, setInspirationImage] = useState<string | null>(null);
@@ -46,6 +47,7 @@ const CreateCharacter = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -54,6 +56,14 @@ const CreateCharacter = () => {
   const wallet = useWallet();
 
   const toggleTag = (t: string) => setSelectedTags(st => st.includes(t) ? st.filter(x => x !== t) : [...st, t]);
+
+  const addCustomTag = () => {
+    const tag = customTagInput.trim().toLowerCase();
+    if (tag && !selectedTags.includes(tag)) {
+      setSelectedTags(st => [...st, tag]);
+    }
+    setCustomTagInput('');
+  };
 
   // Fetch cooldown status when wallet connects
   const fetchStatus = useCallback(async () => {
@@ -142,7 +152,67 @@ const CreateCharacter = () => {
     detailsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const canSubmit = generatedImage && name.trim() && lore.trim() && selectedTags.length > 0;
+
+  const handleSubmitToGallery = async () => {
+    if (!wallet.publicKey) {
+      toast({ title: 'Connect your wallet first', variant: 'destructive' });
+      return;
+    }
+    if (!generatedImage) {
+      toast({ title: 'Generate a character image first', variant: 'destructive' });
+      return;
+    }
+    if (!name.trim()) {
+      toast({ title: 'Enter a character name', variant: 'destructive' });
+      return;
+    }
+    if (!lore.trim()) {
+      toast({ title: 'Enter lore / backstory', variant: 'destructive' });
+      return;
+    }
+    if (selectedTags.length === 0) {
+      toast({ title: 'Select at least one tag', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('characters').insert({
+        wallet_address: wallet.publicKey.toBase58(),
+        name: name.trim(),
+        lore: lore.trim(),
+        tags: selectedTags,
+        image_url: generatedImage,
+      });
+      if (error) throw error;
+      toast({ title: 'Character submitted to gallery!' });
+      // Reset form
+      setName('');
+      setLore('');
+      setSelectedTags([]);
+      setGeneratedImage(null);
+      setAiPrompt('');
+    } catch (err: any) {
+      toast({ title: 'Submission failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleLaunchAsCoin = () => {
+    if (!generatedImage) {
+      toast({ title: 'Generate a character image first', variant: 'destructive' });
+      return;
+    }
+    if (!name.trim()) {
+      toast({ title: 'Enter a character name', variant: 'destructive' });
+      return;
+    }
+    if (!lore.trim()) {
+      toast({ title: 'Enter lore / backstory', variant: 'destructive' });
+      return;
+    }
     navigate('/launch', {
       state: { prefill: { name, description: lore, imageUrl: generatedImage } },
     });
@@ -155,7 +225,6 @@ const CreateCharacter = () => {
 
       {/* AI Generate */}
       <div className="space-y-6">
-        {/* Wallet gate */}
         {!wallet.connected ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
             <Wallet className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -281,9 +350,6 @@ const CreateCharacter = () => {
                     <Button onClick={handleUseCharacter} className="bg-primary text-primary-foreground font-display font-bold hover:bg-primary/90 box-glow-green">
                       <ArrowDown className="h-4 w-4 mr-2" /> Use This Character
                     </Button>
-                    <Button onClick={handleLaunchAsCoin} className="bg-secondary text-secondary-foreground font-display font-bold hover:bg-secondary/90 box-glow-purple">
-                      <Rocket className="h-4 w-4 mr-2" /> Launch as Coin
-                    </Button>
                   </div>
                 </motion.div>
               )}
@@ -295,24 +361,68 @@ const CreateCharacter = () => {
       {/* Character details section */}
       <div ref={detailsRef} className="space-y-4 mt-6">
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Character Name</label>
+          <label className="text-xs text-muted-foreground mb-1 block">Character Name *</label>
           <Input className="bg-muted border-border font-mono" placeholder="e.g. Spaghettino Cuchilino" value={name} onChange={e => setName(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Lore / Backstory</label>
+          <label className="text-xs text-muted-foreground mb-1 block">Lore / Backstory *</label>
           <Textarea className="bg-muted border-border font-mono" placeholder="What is this creature's deal?" value={lore} onChange={e => setLore(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground mb-2 block">Tags</label>
-          <div className="flex gap-2 flex-wrap">
-            {tags.map(t => (
+          <label className="text-xs text-muted-foreground mb-2 block">Tags *</label>
+          <div className="flex gap-2 flex-wrap mb-2">
+            {presetTags.map(t => (
               <button key={t} onClick={() => toggleTag(t)} className={`px-3 py-1 rounded-full text-xs font-mono transition-colors ${selectedTags.includes(t) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>{t}</button>
             ))}
           </div>
+          {/* Custom tags */}
+          <div className="flex gap-2 flex-wrap mb-2">
+            {selectedTags.filter(t => !presetTags.includes(t)).map(t => (
+              <span key={t} className="px-3 py-1 rounded-full text-xs font-mono bg-secondary text-secondary-foreground flex items-center gap-1">
+                {t}
+                <button onClick={() => setSelectedTags(st => st.filter(x => x !== t))}><X className="h-3 w-3" /></button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              className="bg-muted border-border font-mono text-xs flex-1"
+              placeholder="Add custom tag..."
+              value={customTagInput}
+              onChange={e => setCustomTagInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomTag(); } }}
+            />
+            <Button size="sm" variant="outline" onClick={addCustomTag} disabled={!customTagInput.trim()} className="border-border text-muted-foreground">
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
-        <Button className="w-full gradient-btn text-primary-foreground font-display font-bold rounded-xl border-0">
-          <Sparkles className="h-4 w-4 mr-2" /> Submit to Gallery
-        </Button>
+
+        {/* Validation hints */}
+        {!generatedImage && (
+          <p className="text-xs text-destructive font-mono">Generate a character image above first</p>
+        )}
+
+        <div className="flex gap-3">
+          <Button
+            onClick={handleSubmitToGallery}
+            disabled={!canSubmit || isSubmitting}
+            className="flex-1 gradient-btn text-primary-foreground font-display font-bold rounded-xl border-0 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+            ) : (
+              <><Sparkles className="h-4 w-4 mr-2" /> Submit to Gallery</>
+            )}
+          </Button>
+          <Button
+            onClick={handleLaunchAsCoin}
+            disabled={!canSubmit}
+            className="flex-1 bg-secondary text-secondary-foreground font-display font-bold rounded-xl hover:bg-secondary/90 box-glow-purple disabled:opacity-50"
+          >
+            <Rocket className="h-4 w-4 mr-2" /> Launch as Coin
+          </Button>
+        </div>
       </div>
     </div>
   );
