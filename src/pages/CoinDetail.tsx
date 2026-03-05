@@ -46,13 +46,6 @@ const formatPrice = (n: number) => {
   return `$${n.toFixed(2)}`;
 };
 
-const StatBox = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="bg-card border border-border rounded-lg p-4">
-    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-    {children}
-  </div>
-);
-
 const CoinDetail = () => {
   const { id, mintAddress: mintParam } = useParams();
   const [dbCoin, setDbCoin] = useState<CoinDbData | null>(null);
@@ -117,24 +110,27 @@ const CoinDetail = () => {
     }
   };
 
-  // Full page skeleton
   if (dbLoading) {
     return (
       <div className="container py-8 max-w-3xl">
-        <Skeleton className="h-4 w-28 mb-8" />
-        <div className="flex items-center gap-4 mb-8">
-          <Skeleton className="w-20 h-20 rounded-xl" />
+        <Skeleton className="h-4 w-16 mb-8" />
+        <div className="flex items-start gap-5 mb-8">
+          <Skeleton className="w-24 h-24 rounded-xl" />
           <div className="space-y-2 flex-1">
-            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-6 w-48" />
             <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+          <div className="text-right space-y-2">
+            <Skeleton className="h-7 w-28 ml-auto" />
+            <Skeleton className="h-4 w-16 ml-auto" />
           </div>
         </div>
-        <Skeleton className="h-12 w-full rounded-lg mb-6" />
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-4 gap-3 mb-6">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="bg-card border border-border rounded-lg p-4">
-              <Skeleton className="h-3 w-14 mb-2" />
-              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-3 w-12 mb-2" />
+              <Skeleton className="h-6 w-16" />
             </div>
           ))}
         </div>
@@ -165,125 +161,112 @@ const CoinDetail = () => {
 
   return (
     <div className="container py-8 max-w-3xl">
-      <Link to="/explore" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary mb-6 transition-colors">
+      <Link to="/explore" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mb-6 transition-colors">
         <ArrowLeft className="h-3 w-3" /> Back
       </Link>
 
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      {/* Header — Frenzy style: name + ticker top left, price top right */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-foreground text-lg">{dbCoin.name}</span>
+          <span className="text-sm text-muted-foreground">{dbCoin.ticker}</span>
+        </div>
+        {!dexLoading && price !== null && price > 0 && (
+          <div className="text-right">
+            {change24h !== null && (
+              <span className={`text-xs font-bold font-mono mr-2 ${change24h >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {change24h >= 0 ? '+' : ''}{change24h.toFixed(2)}%
+              </span>
+            )}
+            <span className="text-lg font-bold text-foreground font-mono">{formatNum(mc || 0)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Image + description row */}
+      <div className="flex items-start gap-4 mb-6">
         {dbCoin.image_url ? (
-          <img src={dbCoin.image_url} alt={dbCoin.name} className="w-20 h-20 rounded-xl object-cover border border-border" />
+          <img src={dbCoin.image_url} alt={dbCoin.name} className="w-24 h-24 rounded-xl object-cover border-2 border-primary/30" />
         ) : (
-          <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center text-3xl font-bold text-muted-foreground border border-border">
+          <div className="w-24 h-24 rounded-xl bg-muted flex items-center justify-center text-3xl font-bold text-muted-foreground border border-border">
             {dbCoin.ticker.charAt(0)}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground">{dbCoin.name}</h1>
-          <p className="text-sm text-muted-foreground">${dbCoin.ticker} · {dbCoin.universe}</p>
-          {tokenAddr && (
-            <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-1.5 transition-colors font-mono">
-              {tokenAddr.slice(0, 8)}...{tokenAddr.slice(-6)}
-              {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
-            </button>
-          )}
+        <div className="flex-1 min-w-0 pt-1">
+          <h2 className="text-lg font-bold text-foreground leading-snug mb-2">
+            {dbCoin.description || dbCoin.name}
+          </h2>
+          <div className="flex items-center gap-4 flex-wrap">
+            {tokenAddr && (
+              <button onClick={handleCopy} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono">
+                {tokenAddr.slice(0, 4)}..pump
+                {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+              </button>
+            )}
+            <span className="text-[11px] text-muted-foreground">{dbCoin.universe}</span>
+            <span className="text-[11px] text-muted-foreground">{new Date(dbCoin.created_at).toLocaleDateString()}</span>
+          </div>
         </div>
       </div>
 
-      {/* Description */}
-      {dbCoin.description && (
-        <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{dbCoin.description}</p>
-      )}
+      {/* Heatcheck-style stats card */}
+      <div className="bg-card border border-border rounded-xl p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm font-semibold text-foreground">Heatcheck</span>
+        </div>
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            { label: 'Market Cap', value: mc, fmt: formatNum },
+            { label: 'Volume', value: vol, fmt: formatNum },
+            { label: 'Liquidity', value: liq, fmt: formatNum },
+            { label: 'Txns (24h)', value: buys24 !== null && sells24 !== null ? buys24 + sells24 : null, fmt: (n: number) => n.toLocaleString() },
+          ].map(stat => (
+            <div key={stat.label}>
+              <p className="text-[10px] text-muted-foreground mb-1">{stat.label}</p>
+              {dexLoading ? (
+                <Skeleton className="h-6 w-16" />
+              ) : stat.value !== null ? (
+                <p className="text-base font-bold text-foreground font-mono">{stat.fmt(stat.value)}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">—</p>
+              )}
+            </div>
+          ))}
+        </div>
 
-      {/* Price banner */}
-      <div className="bg-card border border-border rounded-xl p-5 mb-5">
-        {dexLoading ? (
-          <div className="flex items-end gap-4">
-            <div>
-              <Skeleton className="h-3 w-10 mb-2" />
-              <Skeleton className="h-10 w-44" />
-            </div>
-            <Skeleton className="h-6 w-20" />
+        {/* Price changes */}
+        {!dexLoading && (change1h !== null || change6h !== null || change24h !== null) && (
+          <div className="flex gap-3 mt-4 pt-3 border-t border-border">
+            {[
+              { label: '1h', value: change1h },
+              { label: '6h', value: change6h },
+              { label: '24h', value: change24h },
+            ].filter(c => c.value !== null).map(c => (
+              <span key={c.label} className={`text-xs font-bold font-mono ${c.value! >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                {c.value! >= 0 ? '↑' : '↓'}{Math.abs(c.value!).toFixed(2)}% <span className="text-muted-foreground font-normal">{c.label}</span>
+              </span>
+            ))}
           </div>
-        ) : price !== null && price > 0 ? (
-          <div className="flex items-end gap-4 flex-wrap">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Price</p>
-              <p className="text-3xl font-bold text-foreground font-mono">{formatPrice(price)}</p>
+        )}
+
+        {/* Buy/Sell bar */}
+        {!dexLoading && buys24 !== null && sells24 !== null && (buys24 + sells24) > 0 && (
+          <div className="mt-3 pt-3 border-t border-border">
+            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+              <span>{buys24} buys</span>
+              <span>{sells24} sells</span>
             </div>
-            {change1h !== null && (
-              <span className={`text-xs font-bold font-mono px-2 py-1 rounded ${change1h >= 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                {change1h >= 0 ? '+' : ''}{change1h.toFixed(2)}% 1h
-              </span>
-            )}
-            {change6h !== null && (
-              <span className={`text-xs font-bold font-mono px-2 py-1 rounded ${change6h >= 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                {change6h >= 0 ? '+' : ''}{change6h.toFixed(2)}% 6h
-              </span>
-            )}
-            {change24h !== null && (
-              <span className={`text-xs font-bold font-mono px-2 py-1 rounded ${change24h >= 0 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                {change24h >= 0 ? '+' : ''}{change24h.toFixed(2)}% 24h
-              </span>
-            )}
-          </div>
-        ) : (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Price</p>
-            <p className="text-sm text-muted-foreground">Not yet listed on DEX</p>
+            <div className="h-1.5 rounded-full overflow-hidden flex bg-muted">
+              <div className="h-full bg-primary" style={{ width: `${(buys24 / (buys24 + sells24)) * 100}%` }} />
+              <div className="h-full bg-destructive flex-1" />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <StatBox label="Market Cap">
-          {dexLoading ? <Skeleton className="h-6 w-24" /> :
-            mc ? <p className="text-lg font-bold text-foreground font-mono">{formatNum(mc)}</p> :
-            <p className="text-sm text-muted-foreground">—</p>}
-        </StatBox>
-        <StatBox label="24h Volume">
-          {dexLoading ? <Skeleton className="h-6 w-24" /> :
-            vol ? <p className="text-lg font-bold text-foreground font-mono">{formatNum(vol)}</p> :
-            <p className="text-sm text-muted-foreground">—</p>}
-        </StatBox>
-        <StatBox label="Liquidity">
-          {dexLoading ? <Skeleton className="h-6 w-24" /> :
-            liq ? <p className="text-lg font-bold text-foreground font-mono">{formatNum(liq)}</p> :
-            <p className="text-sm text-muted-foreground">—</p>}
-        </StatBox>
-        <StatBox label="24h Transactions">
-          {dexLoading ? <Skeleton className="h-6 w-24" /> :
-            buys24 !== null && sells24 !== null ? (
-              <div>
-                <p className="text-lg font-bold text-foreground font-mono">{(buys24 + sells24).toLocaleString()}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-mono text-primary">{buys24} buys</span>
-                  <span className="text-[10px] text-muted-foreground">/</span>
-                  <span className="text-[10px] font-mono text-destructive">{sells24} sells</span>
-                </div>
-              </div>
-            ) : <p className="text-sm text-muted-foreground">—</p>}
-        </StatBox>
-      </div>
-
-      {/* Buy/Sell ratio bar */}
-      {!dexLoading && buys24 !== null && sells24 !== null && (buys24 + sells24) > 0 && (
-        <div className="bg-card border border-border rounded-lg p-3 mb-5">
-          <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5">
-            <span>Buyers</span>
-            <span>Sellers</span>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden flex">
-            <div className="h-full bg-primary rounded-l-full" style={{ width: `${(buys24 / (buys24 + sells24)) * 100}%` }} />
-            <div className="h-full bg-destructive rounded-r-full flex-1" />
-          </div>
-        </div>
-      )}
-
       {/* Chart */}
       {tokenAddr && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden mb-5">
+        <div className="bg-card border border-border rounded-xl overflow-hidden mb-6">
           <div className="flex items-center justify-between px-4 pt-3">
             <p className="text-xs font-semibold text-foreground">Chart</p>
             <a
@@ -305,7 +288,7 @@ const CoinDetail = () => {
       )}
 
       {/* Links */}
-      <div className="flex gap-2 flex-wrap mb-5">
+      <div className="flex gap-2 flex-wrap mb-6">
         {tokenAddr && (
           <>
             <a href={`https://pump.fun/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
@@ -315,10 +298,6 @@ const CoinDetail = () => {
             <a href={`https://solscan.io/token/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
               <ExternalLink className="h-3 w-3" /> Solscan
-            </a>
-            <a href={`https://dexscreener.com/solana/${tokenAddr}`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs bg-card border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">
-              <ExternalLink className="h-3 w-3" /> DexScreener
             </a>
           </>
         )}
