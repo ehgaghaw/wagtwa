@@ -15,7 +15,43 @@ serve(async (req) => {
   }
 
   try {
-    const { characterId, voteType, walletAddress } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action = "vote", characterId, voteType, walletAddress } = body ?? {};
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    if (action === "summary") {
+      const { data: votes, error: votesError } = await supabase
+        .from("character_votes")
+        .select("character_id, vote_type, wallet_address");
+
+      if (votesError) throw votesError;
+
+      const voteCounts: Record<string, { up: number; down: number }> = {};
+      const userVotes: Record<string, "up" | "down"> = {};
+
+      for (const vote of votes ?? []) {
+        if (!voteCounts[vote.character_id]) voteCounts[vote.character_id] = { up: 0, down: 0 };
+        if (vote.vote_type === "up") voteCounts[vote.character_id].up += 1;
+        if (vote.vote_type === "down") voteCounts[vote.character_id].down += 1;
+
+        if (
+          walletAddress &&
+          vote.wallet_address === walletAddress &&
+          (vote.vote_type === "up" || vote.vote_type === "down")
+        ) {
+          userVotes[vote.character_id] = vote.vote_type;
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, voteCounts, userVotes }),
+        { status: 200, headers: jsonHeaders },
+      );
+    }
 
     if (!characterId || typeof characterId !== "string") {
       return new Response(JSON.stringify({ error: "characterId is required" }), { status: 400, headers: jsonHeaders });
@@ -30,11 +66,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Valid walletAddress is required" }), { status: 400, headers: jsonHeaders });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
     const { data: existingVote, error: existingVoteError } = await supabase
       .from("character_votes")
       .select("id, vote_type")
@@ -46,19 +77,19 @@ serve(async (req) => {
       throw existingVoteError;
     }
 
-    let action: "inserted" | "updated" | "removed" = "inserted";
+    let actionResult: "inserted" | "updated" | "removed" = "inserted";
 
     if (existingVote && existingVote.vote_type === voteType) {
       const { error } = await supabase.from("character_votes").delete().eq("id", existingVote.id);
       if (error) throw error;
-      action = "removed";
+      actionResult = "removed";
     } else if (existingVote) {
       const { error } = await supabase
         .from("character_votes")
         .update({ vote_type: voteType })
         .eq("id", existingVote.id);
       if (error) throw error;
-      action = "updated";
+      actionResult = "updated";
     } else {
       const { error } = await supabase.from("character_votes").insert({
         character_id: characterId,
@@ -66,7 +97,7 @@ serve(async (req) => {
         vote_type: voteType,
       });
       if (error) throw error;
-      action = "inserted";
+      actionResult = "inserted";
     }
 
     const { data: votes, error: votesError } = await supabase
@@ -84,7 +115,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        action,
+        action: actionResult,
         voteCounts: { up, down },
       }),
       { status: 200, headers: jsonHeaders },
