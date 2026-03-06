@@ -13,44 +13,43 @@ const Index = () => {
 
   useEffect(() => {
     const fetchCoins = async () => {
-      const { data } = await supabase
-        .from('launched_coins')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('character-vote', {
+        body: { action: 'coins' },
+      });
 
-      if (data) {
-        setCoins(data.map(c => ({
-          id: c.id,
-          name: c.name,
-          ticker: c.ticker,
-          description: c.description || '',
-          image: c.image_url || '',
-          avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
-          avatarLetter: c.name.charAt(0).toUpperCase(),
-          price: 0,
-          priceChange24h: 0,
-          marketCap: 0,
-          volume24h: 0,
-          bondingProgress: 0,
-          creator: c.wallet_address,
-          createdAt: new Date(c.created_at).toLocaleDateString(),
-          holders: 0,
-          tags: [],
-          universe: c.universe as any,
-        })));
-      }
+      if (error || !data) return;
+      const rows = (data as any).coins || [];
+
+      setCoins(rows.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        ticker: c.ticker,
+        description: c.description || '',
+        image: c.image_url || '',
+        avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
+        avatarLetter: c.name.charAt(0).toUpperCase(),
+        price: 0,
+        priceChange24h: 0,
+        marketCap: 0,
+        volume24h: 0,
+        bondingProgress: 0,
+        creator: c.creator_display || 'anonymous',
+        createdAt: new Date(c.created_at).toLocaleDateString(),
+        holders: 0,
+        tags: [],
+        universe: c.universe as any,
+      })));
     };
 
     fetchCoins();
 
-    const channel = supabase
-      .channel('index-launched-coins')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'launched_coins' }, () => {
-        fetchCoins();
-      })
-      .subscribe();
+    const poll = window.setInterval(() => {
+      fetchCoins();
+    }, 8000);
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      window.clearInterval(poll);
+    };
   }, []);
 
   return (

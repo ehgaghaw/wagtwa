@@ -34,9 +34,14 @@ const Characters = () => {
   const walletAddress = wallet.publicKey?.toBase58() || null;
 
   const fetchCharacters = useCallback(async () => {
-    const { data } = await supabase.from('characters').select('*');
-    if (!data) return;
-    const mapped: BrainrotCharacter[] = data.map((c) => ({
+    const { data, error } = await supabase.functions.invoke('character-vote', {
+      body: { action: 'characters' },
+    });
+
+    if (error || !data) return;
+    const rows = (data as any).characters || [];
+
+    const mapped: BrainrotCharacter[] = rows.map((c: any) => ({
       id: c.id,
       name: c.name,
       lore: c.lore || '',
@@ -44,7 +49,7 @@ const Characters = () => {
       avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
       avatarLetter: c.name.charAt(0).toUpperCase(),
       tags: c.tags || [],
-      votes: c.upvotes - c.downvotes,
+      votes: (c.upvotes || 0) - (c.downvotes || 0),
       hasCoin: false,
       universe: (c as any).universe as BrainrotUniverse || 'Italian Brainrot',
     }));
@@ -65,20 +70,13 @@ const Characters = () => {
     fetchVotes();
     fetchCharacters();
 
-    const charChannel = supabase
-      .channel('characters-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'characters' }, () => {
-        fetchCharacters();
-      })
-      .subscribe();
-
-    const votePoll = window.setInterval(() => {
+    const poll = window.setInterval(() => {
       fetchVotes();
+      fetchCharacters();
     }, 8000);
 
     return () => {
-      window.clearInterval(votePoll);
-      supabase.removeChannel(charChannel);
+      window.clearInterval(poll);
     };
   }, [fetchVotes, fetchCharacters]);
 

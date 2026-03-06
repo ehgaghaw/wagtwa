@@ -38,20 +38,27 @@ const Explore = () => {
 
   const fetchLaunchedCoins = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('launched_coins').select('*').order('created_at', { ascending: false });
-    setRawCoins((data as any[]) || []);
+    const { data, error } = await supabase.functions.invoke('character-vote', {
+      body: { action: 'coins' },
+    });
+
+    if (error || !data) {
+      setRawCoins([]);
+      setLoading(false);
+      return;
+    }
+
+    setRawCoins(((data as any).coins as any[]) || []);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchLaunchedCoins();
-    const channel = supabase
-      .channel('launched-coins-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'launched_coins' }, () => {
-        fetchLaunchedCoins();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const poll = window.setInterval(() => {
+      fetchLaunchedCoins();
+    }, 8000);
+
+    return () => { window.clearInterval(poll); };
   }, [fetchLaunchedCoins]);
 
   const mintAddresses = useMemo(() => rawCoins.map(c => c.mint_address).filter(Boolean), [rawCoins]);
@@ -193,7 +200,7 @@ const Explore = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-muted border border-border" />
                     <span className="text-[11px] text-muted-foreground font-mono">
-                      {shortenWallet(coin.wallet_address)}
+                      {coin.creator_display || 'anonymous'}
                     </span>
                     <span className="text-[11px] text-muted-foreground">{coin.universe}</span>
                     <span className="text-[11px] text-muted-foreground">{timeAgo(coin.created_at)}</span>
