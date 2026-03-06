@@ -93,14 +93,16 @@ const Characters = () => {
       return;
     }
 
-    const existing = userVotes[characterId];
-    if (existing === voteType) {
-      await supabase.from('character_votes').delete().eq('character_id', characterId).eq('wallet_address', walletAddress);
-    } else if (existing) {
-      await supabase.from('character_votes').update({ vote_type: voteType }).eq('character_id', characterId).eq('wallet_address', walletAddress);
-    } else {
-      await supabase.from('character_votes').insert({ character_id: characterId, wallet_address: walletAddress, vote_type: voteType });
+    const { error } = await supabase.functions.invoke('character-vote', {
+      body: { characterId, voteType, walletAddress },
+    });
+
+    if (error) {
+      toast({ title: 'Vote failed', description: error.message, variant: 'destructive' });
+      return;
     }
+
+    await fetchVotes();
   };
 
   const filtered = characters.filter(c => universe === 'All' || c.universe === universe);

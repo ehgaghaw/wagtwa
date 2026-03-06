@@ -51,7 +51,24 @@ const LaunchCoin = () => {
   }, []);
 
   const wallet = useWallet();
+  const walletPublicKey = wallet.publicKey?.toBase58() || null;
   const devBuyAmount = Math.max(0, parseFloat(form.devBuy) || 0);
+
+  const buildLaunchAuthProof = async () => {
+    if (!wallet.publicKey || !wallet.signMessage) {
+      throw new Error('Connect a wallet that supports message signing');
+    }
+
+    const nonce = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+    const message = `ROT_LAUNCH:${wallet.publicKey.toBase58()}:${nonce}:${Date.now()}`;
+    const signatureBytes = await wallet.signMessage(new TextEncoder().encode(message));
+    const signatureBase64 = btoa(String.fromCharCode(...signatureBytes));
+
+    return {
+      launchAuthMessage: message,
+      launchAuthSignature: signatureBase64,
+    };
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,6 +119,11 @@ const LaunchCoin = () => {
   };
 
   const handleLaunch = async () => {
+    if (!walletPublicKey) {
+      toast({ title: 'Connect your wallet first', variant: 'destructive' });
+      return;
+    }
+
     if (!form.name || !form.ticker) {
       toast({ title: 'Fill in name and ticker', variant: 'destructive' });
       return;
@@ -112,12 +134,15 @@ const LaunchCoin = () => {
     setErrorMessage(null);
 
     try {
+      const { launchAuthMessage, launchAuthSignature } = await buildLaunchAuthProof();
       const imageUrl = await uploadImageToStorage();
       if (!imageUrl && imageFile) throw new Error('Failed to upload image');
 
       const { data, error } = await supabase.functions.invoke('launch-token', {
         body: {
-          userWallet: wallet.publicKey?.toBase58() || 'anonymous',
+          userWallet: walletPublicKey,
+          launchAuthMessage,
+          launchAuthSignature,
           tokenName: form.name,
           tokenSymbol: form.ticker,
           tokenDescription: form.description,
