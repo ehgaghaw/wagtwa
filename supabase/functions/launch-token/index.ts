@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { Connection, Keypair, VersionedTransaction } from "npm:@solana/web3.js@1.98.4";
+import { Connection, Keypair, PublicKey, VersionedTransaction } from "npm:@solana/web3.js@1.98.4";
 import bs58 from "npm:bs58@6.0.0";
+import nacl from "npm:tweetnacl@1.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +32,40 @@ function parseSecretKey(secret: string): Uint8Array {
   return bs58.decode(value);
 }
 
+function decodeBase64Bytes(value: string): Uint8Array {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function verifyLaunchAuthSignature(input: {
+  userWallet: string;
+  launchAuthMessage: string;
+  launchAuthSignature: string;
+}): boolean {
+  const { userWallet, launchAuthMessage, launchAuthSignature } = input;
+
+  if (!launchAuthMessage.startsWith("ROT_LAUNCH:")) return false;
+
+  const parts = launchAuthMessage.split(":");
+  if (parts.length !== 4) return false;
+
+  const messageWallet = parts[1];
+  const timestamp = Number(parts[3]);
+
+  if (messageWallet !== userWallet) return false;
+  if (!Number.isFinite(timestamp)) return false;
+
+  const now = Date.now();
+  const maxSkewMs = 5 * 60 * 1000;
+  if (Math.abs(now - timestamp) > maxSkewMs) return false;
+
+  const messageBytes = new TextEncoder().encode(launchAuthMessage);
+  const signatureBytes = decodeBase64Bytes(launchAuthSignature);
+  const publicKeyBytes = new PublicKey(userWallet).toBytes();
+
+  return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -50,6 +85,8 @@ serve(async (req) => {
     const body = await req.json();
     const {
       userWallet,
+      launchAuthMessage,
+      launchAuthSignature,
       tokenName,
       tokenSymbol,
       tokenDescription,
@@ -67,8 +104,26 @@ serve(async (req) => {
     if (!tokenSymbol || typeof tokenSymbol !== "string" || tokenSymbol.trim().length === 0 || tokenSymbol.length > 10) {
       return errorResponse("Invalid tokenSymbol: required, max 10 chars", 400);
     }
-    if (!userWallet || typeof userWallet !== "string" || userWallet.length < 32 || userWallet.length > 44) {
+
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    if (!userWallet || typeof userWallet !== "string" || !base58Regex.test(userWallet)) {
       return errorResponse("Invalid userWallet address", 400);
+    }
+    if (!launchAuthMessage || typeof launchAuthMessage !== "string") {
+      return errorResponse("launchAuthMessage is required", 400);
+    }
+    if (!launchAuthSignature || typeof launchAuthSignature !== "string") {
+      return errorResponse("launchAuthSignature is required", 400);
+    }
+
+    const hasValidSignature = verifyLaunchAuthSignature({
+      userWallet,
+      launchAuthMessage,
+      launchAuthSignature,
+    });
+
+    if (!hasValidSignature) {
+      return errorResponse("Unauthorized launch request", 401);
     }
 
     const MAX_DEV_BUY_SOL = 5;
@@ -76,11 +131,36 @@ serve(async (req) => {
     if (isNaN(rawBuy) || rawBuy < 0) {
       return errorResponse("Invalid devBuyAmount", 400);
     }
+
     const initialBuySol = Math.min(MAX_DEV_BUY_SOL, Math.max(0, rawBuy));
     const walletKeypair = Keypair.fromSecretKey(parseSecretKey(walletPrivateKey));
     const walletAddress = walletKeypair.publicKey.toBase58();
     const connection = new Connection(RPC_URL, "confirmed");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const [{ count: hourlyLaunchCount }, { count: dailyLaunchCount }] = await Promise.all([
+      supabase
+        .from("token_launches")
+        .select("id", { count: "exact", head: true })
+        .eq("user_wallet", userWallet)
+        .gte("created_at", oneHourAgo),
+      supabase
+        .from("token_launches")
+        .select("id", { count: "exact", head: true })
+        .eq("user_wallet", userWallet)
+        .gte("created_at", dayAgo),
+    ]);
+
+    if ((hourlyLaunchCount ?? 0) >= 3) {
+      return errorResponse("Rate limit exceeded: max 3 launches per hour", 429);
+    }
+
+    if ((dailyLaunchCount ?? 0) >= 10) {
+      return errorResponse("Rate limit exceeded: max 10 launches per day", 429);
+    }
 
     // Create pending record
     const { data: row, error: insertError } = await supabase
