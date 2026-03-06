@@ -283,7 +283,9 @@ const CreateCharacter = () => {
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
                 disabled={isGenerating}
+                maxLength={500}
               />
+              <p className="text-xs text-muted-foreground mt-1 text-right">{aiPrompt.length}/500</p>
             </div>
 
             {/* Inspiration image upload */}
