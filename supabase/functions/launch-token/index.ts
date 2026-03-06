@@ -61,11 +61,22 @@ serve(async (req) => {
       website,
     } = body;
 
-    if (!tokenName || !tokenSymbol) {
-      return errorResponse("Missing required fields: tokenName and tokenSymbol", 400);
+    if (!tokenName || typeof tokenName !== "string" || tokenName.trim().length === 0 || tokenName.length > 50) {
+      return errorResponse("Invalid tokenName: required, max 50 chars", 400);
+    }
+    if (!tokenSymbol || typeof tokenSymbol !== "string" || tokenSymbol.trim().length === 0 || tokenSymbol.length > 10) {
+      return errorResponse("Invalid tokenSymbol: required, max 10 chars", 400);
+    }
+    if (!userWallet || typeof userWallet !== "string" || userWallet.length < 32 || userWallet.length > 44) {
+      return errorResponse("Invalid userWallet address", 400);
     }
 
-    const initialBuySol = Math.max(0, Number(devBuyAmount ?? 0));
+    const MAX_DEV_BUY_SOL = 5;
+    const rawBuy = Number(devBuyAmount ?? 0);
+    if (isNaN(rawBuy) || rawBuy < 0) {
+      return errorResponse("Invalid devBuyAmount", 400);
+    }
+    const initialBuySol = Math.min(MAX_DEV_BUY_SOL, Math.max(0, rawBuy));
     const walletKeypair = Keypair.fromSecretKey(parseSecretKey(walletPrivateKey));
     const walletAddress = walletKeypair.publicKey.toBase58();
     const connection = new Connection(RPC_URL, "confirmed");

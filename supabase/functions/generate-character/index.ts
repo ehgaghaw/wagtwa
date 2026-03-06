@@ -19,10 +19,13 @@ serve(async (req) => {
   try {
     const { prompt, walletAddress, action } = await req.json();
 
+    // Validate walletAddress early for all actions
+    const base58Check = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
     // Action: check — return current generation status for a wallet
     if (action === "check") {
-      if (!walletAddress || typeof walletAddress !== "string") {
-        return new Response(JSON.stringify({ error: "walletAddress is required" }), { status: 400, headers: jsonHeaders });
+      if (!walletAddress || typeof walletAddress !== "string" || !base58Check.test(walletAddress)) {
+        return new Response(JSON.stringify({ error: "Valid walletAddress is required" }), { status: 400, headers: jsonHeaders });
       }
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
@@ -48,6 +51,34 @@ serve(async (req) => {
     if (!walletAddress || typeof walletAddress !== "string") {
       return new Response(JSON.stringify({ error: "walletAddress is required" }), { status: 400, headers: jsonHeaders });
     }
+    // Validate walletAddress is a plausible Solana public key (base58, 32-44 chars)
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    if (!base58Regex.test(walletAddress)) {
+      return new Response(JSON.stringify({ error: "Invalid wallet address format" }), { status: 400, headers: jsonHeaders });
+    }
+
+    // IP-based rate limiting (global, per IP)
+    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ipKey = `ip_${clientIP}`;
+    const supabaseRL = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data: ipRecord } = await supabaseRL
+      .from("ai_generations")
+      .select("generation_count, last_generated_at")
+      .eq("wallet_address", ipKey)
+      .maybeSingle();
+    if (ipRecord) {
+      const ipElapsed = (Date.now() - new Date(ipRecord.last_generated_at || 0).getTime()) / 1000;
+      if (ipElapsed < COOLDOWN_SECONDS) {
+        return new Response(JSON.stringify({
+          error: "Rate limited. Please wait.",
+          cooldownRemaining: Math.ceil(COOLDOWN_SECONDS - ipElapsed),
+        }), { status: 429, headers: jsonHeaders });
+      }
+    }
+
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Prompt is required" }), { status: 400, headers: jsonHeaders });
     }
