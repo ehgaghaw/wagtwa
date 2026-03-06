@@ -6,7 +6,7 @@ import { BrainrotCoin } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import rotLogoAnim from '@/assets/rot-logo-anim.webm';
+
 
 const Index = () => {
   const [coins, setCoins] = useState<BrainrotCoin[]>([]);
@@ -57,14 +57,9 @@ const Index = () => {
     <div>
       {/* Hero — compact, no fluff */}
       <section className="container py-12 md:py-16 text-center">
-        <video
-          src={rotLogoAnim}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="h-24 md:h-32 w-auto mx-auto mb-6"
-        />
+        <div className="h-24 md:h-32 w-auto mx-auto mb-6 flex items-center justify-center">
+          <span className="text-5xl md:text-7xl font-black tracking-tight text-primary">ROT</span>
+        </div>
         <h1 className="text-3xl md:text-5xl font-bold mb-3 glitch-rainbow">
           The Brainrot Launchpad
         </h1>
