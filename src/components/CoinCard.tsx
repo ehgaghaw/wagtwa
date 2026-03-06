@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import type { BrainrotCoin } from '@/data/mockData';
@@ -9,8 +10,9 @@ const formatNum = (n: number) => {
   return `$${n.toFixed(2)}`;
 };
 
-const CoinCard = ({ coin }: { coin: BrainrotCoin }) => (
+const CoinCard = React.forwardRef<HTMLAnchorElement, { coin: BrainrotCoin }>(({ coin }, ref) => (
   <Link
+    ref={ref}
     to={coin.mintAddress ? `/token/${coin.mintAddress}` : `/coin/${coin.id}`}
     className="block bg-card border border-border rounded-md p-4 hover:border-muted-foreground/30 hover:-translate-y-0.5 transition-all duration-200 group"
   >
@@ -56,6 +58,8 @@ const CoinCard = ({ coin }: { coin: BrainrotCoin }) => (
       </div>
     </div>
   </Link>
-);
+));
+
+CoinCard.displayName = 'CoinCard';
 
 export default CoinCard;
