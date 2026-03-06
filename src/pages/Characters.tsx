@@ -52,39 +52,34 @@ const Characters = () => {
   }, []);
 
   const fetchVotes = useCallback(async () => {
-    const { data } = await supabase.from('character_votes').select('*');
-    if (!data) return;
-
-    const counts: VoteCounts = {};
-    const myVotes: UserVotes = {};
-    data.forEach((v: any) => {
-      if (!counts[v.character_id]) counts[v.character_id] = { up: 0, down: 0 };
-      if (v.vote_type === 'up') counts[v.character_id].up++;
-      else counts[v.character_id].down++;
-      if (walletAddress && v.wallet_address === walletAddress) {
-        myVotes[v.character_id] = v.vote_type;
-      }
+    const { data, error } = await supabase.functions.invoke('character-vote', {
+      body: { action: 'summary', walletAddress },
     });
-    setVoteCounts(counts);
-    setUserVotes(myVotes);
+
+    if (error || !data) return;
+    setVoteCounts((data as any).voteCounts || {});
+    setUserVotes((data as any).userVotes || {});
   }, [walletAddress]);
 
   useEffect(() => {
     fetchVotes();
     fetchCharacters();
-    const channel = supabase
-      .channel('character-votes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'character_votes' }, () => {
-        fetchVotes();
-      })
-      .subscribe();
+
     const charChannel = supabase
       .channel('characters-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'characters' }, () => {
         fetchCharacters();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); supabase.removeChannel(charChannel); };
+
+    const votePoll = window.setInterval(() => {
+      fetchVotes();
+    }, 8000);
+
+    return () => {
+      window.clearInterval(votePoll);
+      supabase.removeChannel(charChannel);
+    };
   }, [fetchVotes, fetchCharacters]);
 
   const handleVote = async (characterId: string, voteType: 'up' | 'down') => {
@@ -94,7 +89,7 @@ const Characters = () => {
     }
 
     const { error } = await supabase.functions.invoke('character-vote', {
-      body: { characterId, voteType, walletAddress },
+      body: { action: 'vote', characterId, voteType, walletAddress },
     });
 
     if (error) {
