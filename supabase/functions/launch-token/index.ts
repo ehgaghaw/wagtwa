@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { Connection, Keypair, VersionedTransaction } from "npm:@solana/web3.js@1.98.4";
 import bs58 from "npm:bs58@6.0.0";
 
