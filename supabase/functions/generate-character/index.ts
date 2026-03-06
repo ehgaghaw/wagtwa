@@ -51,6 +51,10 @@ serve(async (req) => {
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Prompt is required" }), { status: 400, headers: jsonHeaders });
     }
+    const MAX_PROMPT_LENGTH = 500;
+    if (prompt.trim().length > MAX_PROMPT_LENGTH) {
+      return new Response(JSON.stringify({ error: `Prompt must be ${MAX_PROMPT_LENGTH} characters or less` }), { status: 400, headers: jsonHeaders });
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -112,7 +116,7 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenAI API error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "Image generation failed", details: errorText }), { status: response.status, headers: jsonHeaders });
+      return new Response(JSON.stringify({ error: "Image generation failed. Please try again." }), { status: 500, headers: jsonHeaders });
     }
 
     const data = await response.json();
