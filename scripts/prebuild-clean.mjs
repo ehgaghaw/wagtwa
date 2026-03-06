@@ -7,6 +7,8 @@ const cleanupTargets = [
   'tsconfig.app.tsbuildinfo',
   'tsconfig.node.tsbuildinfo',
   'bun.lock',
+  'bun.lockb',
+  'package-lock.json',
 ];
 
 for (const target of cleanupTargets) {
