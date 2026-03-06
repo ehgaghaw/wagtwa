@@ -16,33 +16,32 @@ const TickerBar = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
-        .from('launched_coins')
-        .select('id, name, ticker, image_url')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('character-vote', {
+        body: { action: 'ticker' },
+      });
 
-      if (data) {
-        setCoins(data.map(c => ({
-          id: c.id,
-          name: c.name,
-          ticker: c.ticker,
-          image: c.image_url || '',
-          avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
-          avatarLetter: c.name.charAt(0).toUpperCase(),
-        })));
-      }
+      if (error || !data) return;
+      const rows = (data as any).coins || [];
+
+      setCoins(rows.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        ticker: c.ticker,
+        image: c.image_url || '',
+        avatarGradient: 'linear-gradient(135deg, hsl(280 80% 55%), hsl(330 85% 60%))',
+        avatarLetter: c.name.charAt(0).toUpperCase(),
+      })));
     };
 
     fetch();
 
-    const channel = supabase
-      .channel('ticker-launched-coins')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'launched_coins' }, () => {
-        fetch();
-      })
-      .subscribe();
+    const poll = window.setInterval(() => {
+      fetch();
+    }, 8000);
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      window.clearInterval(poll);
+    };
   }, []);
 
   if (coins.length === 0) return null;

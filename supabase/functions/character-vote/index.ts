@@ -9,6 +9,8 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
+const maskWallet = (wallet: string) => `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,12 +18,92 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { action = "vote", characterId, voteType, walletAddress } = body ?? {};
+    const { action = "vote", characterId, voteType, walletAddress, id, mintAddress } = body ?? {};
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    if (action === "characters") {
+      const { data: characters, error } = await supabase
+        .from("characters")
+        .select("id, name, lore, image_url, tags, upvotes, downvotes, universe, created_at")
+        .order("created_at", { ascending: false })
+        .limit(300);
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true, characters: characters ?? [] }), {
+        status: 200,
+        headers: jsonHeaders,
+      });
+    }
+
+    if (action === "ticker") {
+      const { data: coins, error } = await supabase
+        .from("launched_coins")
+        .select("id, name, ticker, image_url")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true, coins: coins ?? [] }), {
+        status: 200,
+        headers: jsonHeaders,
+      });
+    }
+
+    if (action === "coins") {
+      const { data: coins, error } = await supabase
+        .from("launched_coins")
+        .select("id, name, ticker, description, image_url, mint_address, universe, created_at, initial_buy, twitter, telegram, website, wallet_address")
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (error) throw error;
+
+      const sanitized = (coins ?? []).map((coin) => ({
+        ...coin,
+        creator_display: coin.wallet_address ? maskWallet(coin.wallet_address) : "anonymous",
+      }));
+
+      return new Response(JSON.stringify({ success: true, coins: sanitized }), {
+        status: 200,
+        headers: jsonHeaders,
+      });
+    }
+
+    if (action === "coin") {
+      if ((!id || typeof id !== "string") && (!mintAddress || typeof mintAddress !== "string")) {
+        return new Response(JSON.stringify({ error: "id or mintAddress is required" }), { status: 400, headers: jsonHeaders });
+      }
+
+      let query = supabase
+        .from("launched_coins")
+        .select("id, name, ticker, description, image_url, mint_address, universe, twitter, telegram, website, created_at, initial_buy, wallet_address");
+
+      if (mintAddress && typeof mintAddress === "string") {
+        query = query.eq("mint_address", mintAddress);
+      } else if (id && typeof id === "string") {
+        query = query.eq("id", id);
+      }
+
+      const { data: coin, error } = await query.maybeSingle();
+      if (error) throw error;
+      if (!coin) return new Response(JSON.stringify({ success: true, coin: null }), { status: 200, headers: jsonHeaders });
+
+      const sanitized = {
+        ...coin,
+        creator_display: coin.wallet_address ? maskWallet(coin.wallet_address) : "anonymous",
+      };
+
+      return new Response(JSON.stringify({ success: true, coin: sanitized }), {
+        status: 200,
+        headers: jsonHeaders,
+      });
+    }
 
     if (action === "summary") {
       const { data: votes, error: votesError } = await supabase

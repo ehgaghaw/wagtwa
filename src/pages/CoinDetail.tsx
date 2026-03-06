@@ -21,7 +21,7 @@ interface CoinDbData {
   ticker: string;
   description: string | null;
   image_url: string | null;
-  wallet_address: string;
+  creator_display: string;
   mint_address: string | null;
   universe: string;
   twitter: string | null;
@@ -61,14 +61,15 @@ const CoinDetail = () => {
   useEffect(() => {
     const fetchCoin = async () => {
       setDbLoading(true);
-      let query = supabase.from('launched_coins').select('*');
-      if (mintAddress) {
-        query = query.eq('mint_address', mintAddress);
-      } else if (id) {
-        query = query.eq('id', id);
+      const { data, error } = await supabase.functions.invoke('character-vote', {
+        body: { action: 'coin', id: id || null, mintAddress: mintAddress || null },
+      });
+
+      if (error || !data) {
+        setDbCoin(null);
+      } else {
+        setDbCoin(((data as any).coin as CoinDbData) || null);
       }
-      const { data } = await query.single();
-      setDbCoin(data as any);
       setDbLoading(false);
     };
     fetchCoin();
@@ -351,7 +352,7 @@ const CoinDetail = () => {
         <div className="space-y-2 text-xs">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Creator</span>
-            <span className="font-mono text-foreground">{dbCoin.wallet_address.slice(0, 8)}...{dbCoin.wallet_address.slice(-4)}</span>
+            <span className="font-mono text-foreground">{dbCoin.creator_display || 'anonymous'}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Universe</span>
